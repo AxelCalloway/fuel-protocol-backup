@@ -1,0 +1,2177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FUEL Protocol</title>
+<link rel="icon" type="image/png" href="favicon.png" />
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --bg2: #111820;
+    --bg3: #161e2a;
+    --card: #141c27;
+    --border: #1e2a3a;
+    --border2: #2a3a50;
+    --text: #e8eef7;
+    --muted: #8b9bb4;
+    --dim: #5a6b84;
+    --accent: #3d8bfd;
+    --accent2: #1a5fd4;
+    --green: #2dd4a8;
+    --green-dim: rgba(45,212,168,0.12);
+    --red: #f07178;
+    --orange: #f0a060;
+    --purple: #a78bfa;
+    --radius: 12px;
+    --font: "Inter", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* App shell: left sidebar + content column */
+  :root { --sidebar-w: 248px; --topbar-h: 64px; }
+  .app {
+    display: grid;
+    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+    min-height: 100vh;
+  }
+  .content { min-width: 0; }
+
+  /* Sidebar */
+  .sidebar {
+    position: sticky; top: 0; align-self: start;
+    height: 100vh; height: 100dvh;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    z-index: 120;
+  }
+  .sidebar-head {
+    height: var(--topbar-h); flex: none;
+    padding: 0 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; font-size: 18px; letter-spacing: -0.02em; white-space: nowrap;
+  }
+  /* The logo PNG is a 128px black square centered in a 200px transparent canvas.
+     Crop to that square (36/128 scale => 56px image, -10px offset) and round it
+     so it reads as an app-icon tile against the dark UI. */
+  .logo-img {
+    position: relative; display: block; flex: none;
+    width: 36px; height: 36px; border-radius: 9px; overflow: hidden;
+    background: #000; box-shadow: 0 0 0 1px var(--border2);
+  }
+  .logo-img img {
+    position: absolute; left: -10px; top: -10px;
+    width: 56px; height: 56px; max-width: none;
+  }
+  .nav {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 16px 12px; overflow-y: auto;
+  }
+  .nav button {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; text-align: left;
+    background: none; border: none; color: var(--muted);
+    padding: 10px 12px; border-radius: 10px; cursor: pointer;
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+  }
+  .nav button svg {
+    width: 18px; height: 18px; flex: none;
+    fill: none; stroke: currentColor; stroke-width: 1.8;
+    stroke-linecap: round; stroke-linejoin: round;
+    transition: color 0.15s;
+  }
+  .nav button:hover { color: var(--text); background: var(--bg3); }
+  .nav button.active { color: var(--text); background: var(--bg3); }
+  .nav button.active svg { color: var(--accent); }
+  .nav button:focus-visible,
+  .menu-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* External links in the sidebar (same look as nav buttons, but real <a> tags) */
+  .nav-divider { height: 1px; background: var(--border); margin: 10px 4px 6px; }
+  .nav-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--dim); padding: 6px 12px 4px;
+  }
+  .nav a {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; color: var(--muted); text-decoration: none;
+    padding: 10px 12px; border-radius: 10px;
+    font-size: 14px; font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+  }
+  .nav a svg {
+    width: 18px; height: 18px; flex: none;
+    fill: none; stroke: currentColor; stroke-width: 1.8;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  .nav a .ext { width: 14px; height: 14px; margin-left: auto; opacity: 0.55; }
+  .nav a:hover { color: var(--text); background: var(--bg3); text-decoration: none; }
+  .nav a:hover .ext { opacity: 1; }
+  .nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Stake page: pin each card's action button to the bottom so Stake and Withdraw line up
+     even when the two cards have different content heights. */
+  #page-stake .card { display: flex; flex-direction: column; }
+  #page-stake .card > .btn-block { margin-top: auto; }
+  #page-stake #userStakeInfo { margin-bottom: 12px; }
+
+  /* Wrong-network banner */
+  .net-banner {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px;
+    padding: 10px 24px; font-size: 13px; color: var(--orange);
+    background: rgba(240,160,96,0.10); border-bottom: 1px solid rgba(240,160,96,0.35);
+  }
+  .net-banner[hidden] { display: none; }
+  .net-banner .btn { white-space: nowrap; }
+  @media (max-width: 900px) { .net-banner { padding: 10px 16px; } }
+
+  /* Footer */
+  .site-footer {
+    max-width: 1280px; margin: 0 auto; padding: 0 24px 40px;
+  }
+  .footer-inner {
+    border-top: 1px solid var(--border); padding-top: 22px;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;
+    font-size: 13px; color: var(--muted);
+  }
+  .donate { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+  .donate-label { font-weight: 600; color: var(--text); }
+  .donate .mono { color: var(--accent); }
+  .addr-short { display: none; }
+  .footer-meta { display: flex; align-items: center; gap: 8px; color: var(--dim); }
+  .footer-meta a { color: var(--muted); font-weight: 600; }
+  .footer-meta a:hover { color: var(--accent); }
+  @media (max-width: 700px) {
+    .site-footer { padding-left: 16px; padding-right: 16px; }
+    .addr-full { display: none; }
+    .addr-short { display: inline; }
+    .footer-inner { flex-direction: column; align-items: flex-start; }
+  }
+  .copy-btn {
+    background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
+    border-radius: 6px; padding: 3px 10px; font-size: 12px; font-family: inherit;
+    cursor: pointer; transition: border 0.15s;
+  }
+  .copy-btn:hover { border-color: var(--accent); }
+  .copy-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .sidebar-backdrop { display: none; }
+  .menu-btn, .sidebar-close {
+    display: none; place-items: center;
+    width: 38px; height: 38px; flex: none;
+    background: none; border: 1px solid var(--border2); border-radius: 8px;
+    color: var(--text); cursor: pointer;
+  }
+  .menu-btn:hover, .sidebar-close:hover { border-color: var(--accent); }
+  .menu-btn svg, .sidebar-close svg {
+    width: 18px; height: 18px; fill: none; stroke: currentColor;
+    stroke-width: 2; stroke-linecap: round;
+  }
+
+  /* Top bar (now just wallet / status, right-aligned) */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(11,15,20,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: var(--topbar-h);
+    display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+  }
+  .topbar-logo { display: none; margin-right: auto; }
+  .topbar .chain-badge, .topbar .btn { white-space: nowrap; }
+  .wallet-area { display: flex; align-items: center; gap: 10px; }
+  .chain-badge {
+    font-size: 12px; color: var(--green); background: var(--green-dim);
+    padding: 4px 10px; border-radius: 20px; font-weight: 600;
+  }
+  .btn {
+    border: none; border-radius: 8px; cursor: pointer;
+    font-weight: 600; font-size: 14px; padding: 10px 18px;
+    transition: all 0.15s; font-family: inherit;
+  }
+  .btn-primary {
+    background: var(--accent); color: #fff;
+  }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-ghost {
+    background: var(--bg3); color: var(--text); border: 1px solid var(--border2);
+  }
+  .btn-ghost:hover { border-color: var(--accent); }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+  .btn-block { width: 100%; }
+  .btn-green { background: var(--green); color: #0b0f14; }
+  .btn-green:hover { filter: brightness(1.1); }
+
+  /* Layout */
+  .main { max-width: 1280px; margin: 0 auto; padding: 28px 24px 80px; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 6px; }
+  .subtitle { color: var(--muted); font-size: 15px; margin-bottom: 28px; }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .stat-label {
+    font-size: 12px; color: var(--muted); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;
+  }
+  .stat-value {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-value.sm { font-size: 16px; }
+  .stat-sub { font-size: 12px; color: var(--dim); margin-top: 4px; }
+
+  /* Cards / panels */
+  .grid-2 {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .grid-3 {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
+  }
+  @media (max-width: 900px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+
+    /* Sidebar becomes an off-canvas drawer */
+    .app { grid-template-columns: minmax(0, 1fr); }
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: 272px; max-width: 85vw;
+      transform: translateX(-100%);
+      transition: transform 0.22s ease;
+      box-shadow: none;
+    }
+    .sidebar.open { transform: translateX(0); box-shadow: 0 0 48px rgba(0,0,0,0.6); }
+    .sidebar-backdrop {
+      display: block; position: fixed; inset: 0; z-index: 110;
+      background: rgba(5,8,12,0.6);
+      opacity: 0; pointer-events: none; transition: opacity 0.22s ease;
+    }
+    .sidebar-backdrop.show { opacity: 1; pointer-events: auto; }
+    .menu-btn, .sidebar-close { display: grid; }
+    .topbar { height: auto; min-height: var(--topbar-h); padding: 8px 16px; }
+    .topbar-logo { display: flex; }
+    .wallet-area { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .main { padding-left: 16px; padding-right: 16px; }
+  }
+  @media (max-width: 520px) {
+    .topbar-logo .logo-text { display: none; }
+    .topbar { gap: 8px; }
+    .wallet-area .btn { padding: 8px 12px; font-size: 13px; }
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+  }
+  .card-title {
+    font-size: 15px; font-weight: 600; margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title .tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 4px;
+    background: var(--bg3); color: var(--muted); font-weight: 500;
+  }
+
+  /* Forms */
+  label {
+    display: block; font-size: 13px; color: var(--muted);
+    margin-bottom: 6px; font-weight: 500;
+  }
+  .input-row {
+    display: flex; gap: 8px; margin-bottom: 14px;
+  }
+  input[type="number"], input[type="text"], select {
+    background: var(--bg); border: 1px solid var(--border2);
+    border-radius: 8px; color: var(--text); padding: 10px 14px;
+    font-size: 15px; font-family: inherit; width: 100%;
+    outline: none; transition: border 0.15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  .hint { font-size: 12px; color: var(--dim); margin-top: -8px; margin-bottom: 14px; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th {
+    text-align: left; color: var(--muted); font-weight: 500;
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em;
+    padding: 8px 10px; border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 12px 10px; border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  tr:last-child td { border-bottom: none; }
+
+  /* Scrollable wrapper for long proxy/group tables — shows ~5 rows, rest via scroll.
+     max-height here is just a fallback; sizeScrollTableToRows() sets the exact
+     pixel height once rows are rendered, so 5 full rows always fit before scrolling. */
+  .scroll-table {
+    max-height: 400px; overflow-y: auto; overflow-x: auto;
+    border: 1px solid var(--border); border-radius: 8px;
+  }
+  .scroll-table table { margin: 0; }
+  .scroll-table th {
+    position: sticky; top: 0; background: var(--card); z-index: 1;
+  }
+  .scroll-table tr:last-child td { border-bottom: 1px solid var(--border); }
+  .scroll-table tr:last-child:last-of-type td { border-bottom: none; }
+
+  /* Status */
+  .status-ok { color: var(--green); }
+  .status-wait { color: var(--orange); }
+  .status-err { color: var(--red); }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 999;
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 14px 20px; max-width: 420px;
+    font-size: 14px; display: none; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  #toast.show { display: block; animation: slideIn 0.25s ease; }
+  #toast.err { border-color: var(--red); }
+  #toast.ok { border-color: var(--green); }
+  @keyframes slideIn {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  /* Progress bar */
+  .progress-track {
+    height: 6px; background: var(--bg); border-radius: 3px; overflow: hidden;
+    margin-top: 8px;
+  }
+  .progress-fill {
+    height: 100%; background: linear-gradient(90deg, var(--accent), var(--green));
+    border-radius: 3px; transition: width 0.4s ease;
+  }
+
+  .section-gap { margin-top: 28px; }
+  .addr-link { color: var(--muted); font-size: 12px; }
+  .addr-link:hover { color: var(--accent); }
+
+  .tabs {
+    display: flex; gap: 4px; margin-bottom: 18px;
+    border-bottom: 1px solid var(--border); padding-bottom: 0;
+  }
+  .tabs button {
+    background: none; border: none; color: var(--muted);
+    padding: 10px 16px; cursor: pointer; font-size: 14px; font-weight: 500;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    font-family: inherit;
+  }
+  .tabs button.active {
+    color: var(--text); border-bottom-color: var(--accent);
+  }
+
+  .empty { color: var(--dim); text-align: center; padding: 32px; font-size: 14px; }
+
+  /* Remint confirm modal */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(5,8,12,0.65);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+  }
+  .modal-box {
+    background: var(--card); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 24px;
+    width: 380px; max-width: 100%;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  }
+  .modal-title {
+    font-size: 16px; font-weight: 700; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .state-box {
+    text-align: center; padding: 28px 16px; font-size: 14px; color: var(--muted);
+    border-radius: 8px; background: var(--bg); border: 1px dashed var(--border);
+  }
+  .state-box.loading { color: var(--accent); border-color: rgba(61,139,253,0.35); }
+  .state-box.error {
+    color: #f07178; border-color: rgba(240,113,120,0.35);
+    background: rgba(240,113,120,0.12);
+  }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid var(--border2); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: -3px; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .chain-badge.warn { color: #f0a060; background: rgba(240,160,96,0.12); }
+  .chain-badge.err { color: #f07178; background: rgba(240,113,120,0.12); }
+
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  .mt-12 { margin-top: 12px; }
+  .mb-8 { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-head">
+    <div class="logo">
+      <span class="logo-img"><img src="fuel_logo_200x200.png" alt="FUEL" width="56" height="56" /></span>
+      FUEL Protocol
+    </div>
+    <button class="sidebar-close" id="sidebarClose" aria-label="Close menu">
+      <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <nav class="nav" aria-label="Main">
+    <button class="active" data-page="dashboard" aria-current="page">
+      <svg viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button data-page="mint">
+      <svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>
+      Mint
+    </button>
+    <button data-page="claim">
+      <svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>
+      Claim
+    </button>
+    <button data-page="stake">
+      <svg viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>
+      Stake
+    </button>
+    <button data-page="burns">
+      <svg viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+      Burns &amp; Vault
+    </button>
+
+    <div class="nav-divider" role="separator"></div>
+    <div class="nav-label" id="navExtLabel">External sites</div>
+    <a href="https://app.fuelmoretokens.com/" target="_blank" rel="noopener noreferrer" aria-describedby="navExtLabel">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Original FUEL Site
+      <svg class="ext" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+    </a>
+    <a href="https://app.moretokens.com/" target="_blank" rel="noopener noreferrer" aria-describedby="navExtLabel">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      MORE Website
+      <svg class="ext" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+    </a>
+
+    <div class="nav-label" id="navCreatorLabel">FUEL &amp; MORE creator</div>
+    <a href="https://t.me/buymoretoken" target="_blank" rel="noopener noreferrer" aria-describedby="navCreatorLabel">
+      <svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+      Telegram
+      <svg class="ext" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+    </a>
+    <a href="https://x.com/TrVon" target="_blank" rel="noopener noreferrer" aria-describedby="navCreatorLabel">
+      <svg viewBox="0 0 24 24"><path d="M4 4l11.733 16h4.267l-11.733 -16z"/><path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772"/></svg>
+      X (Twitter)
+      <svg class="ext" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+    </a>
+  </nav>
+</aside>
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<div class="content">
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false">
+    <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <div class="logo topbar-logo">
+    <span class="logo-img"><img src="fuel_logo_200x200.png" alt="FUEL" width="56" height="56" /></span>
+    <span class="logo-text">FUEL Protocol</span>
+  </div>
+  <div class="wallet-area">
+    <span class="chain-badge" id="chainBadge">Robinhood · 4663</span>
+    <button class="btn btn-ghost btn-sm" id="retryRpcBtn" style="display:none" onclick="manualRetryRpc()">Retry connection</button>
+    <button class="btn btn-primary" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+  </div>
+</header>
+
+<div class="net-banner" id="netBanner" role="alert" hidden>
+  <span>Your wallet is on a different network. Switch to Robinhood Chain (4663) to mint, claim and stake.</span>
+  <button type="button" class="btn btn-primary btn-sm" id="netSwitchBtn">Switch to Robinhood Chain</button>
+</div>
+
+<main class="main">
+
+<!-- ===================== DASHBOARD ===================== -->
+<section class="page active" id="page-dashboard">
+  <h1>Fuel Overview</h1>
+  <p class="subtitle">Live stats from FUEL, vault, and burn engines on Robinhood Chain</p>
+
+  <div class="stats-grid" id="globalStats">
+    <div class="stat-card"><div class="stat-label">Global Rank</div><div class="stat-value" id="s-rank">—</div></div>
+    <div class="stat-card"><div class="stat-label">Active Minters</div><div class="stat-value" id="s-minters">—</div></div>
+    <div class="stat-card"><div class="stat-label">Amplifier</div><div class="stat-value" id="s-amp">—</div></div>
+    <div class="stat-card"><div class="stat-label">EAA Rate</div><div class="stat-value" id="s-eaa">—</div></div>
+    <div class="stat-card"><div class="stat-label">Max Term</div><div class="stat-value sm" id="s-maxterm">—</div></div>
+    <div class="stat-card"><div class="stat-label">APY (Stake)</div><div class="stat-value" id="s-apy">—</div></div>
+    <div class="stat-card"><div class="stat-label">Total Staked</div><div class="stat-value sm" id="s-staked">—</div></div>
+    <div class="stat-card"><div class="stat-label">Active Stakes</div><div class="stat-value" id="s-astakes">—</div></div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title">Mint Vault <span class="tag">45% fees</span></div>
+      <div class="stat-label">ETH Balance</div>
+      <div class="stat-value" id="v-bal">—</div>
+      <div class="stat-sub" id="v-cycle">Cycle —</div>
+      <div class="progress-track"><div class="progress-fill" id="v-progress" style="width:0%"></div></div>
+      <div class="stat-sub mt-12" id="v-end">Ends —</div>
+      <div class="stat-sub" id="v-swept">Total swept: —</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Buy & Burn Fuel <span class="tag">25% fees</span></div>
+      <div class="stat-label">ETH in Pool</div>
+      <div class="stat-value" id="b-eth">—</div>
+      <div class="stat-sub" id="b-burnt">FUEL burnt: —</div>
+      <div class="stat-sub" id="b-used">ETH used: —</div>
+      <div class="stat-sub" id="b-daily">Daily drip: —</div>
+    </div>
+    <div class="card">
+      <div class="card-title">MORE Burner <span class="tag">30% fees</span></div>
+      <div class="stat-label">ETH in Pool</div>
+      <div class="stat-value" id="m-eth">—</div>
+      <div class="stat-sub" id="m-burnt">MORE burnt: —</div>
+      <div class="stat-sub" id="m-used">ETH used: —</div>
+      <div class="stat-sub" id="m-daily">Daily drip: —</div>
+    </div>
+  </div>
+
+  <div class="card section-gap">
+    <div class="card-title">Your Position</div>
+    <div id="userPosition" class="state-box">Connect wallet to see your mint, stake & balances</div>
+  </div>
+</section>
+
+<!-- ===================== MINT ===================== -->
+<section class="page" id="page-mint">
+  <h1>Mint FUEL</h1>
+  <p class="subtitle">One mint uses your wallet directly. More than one opens a batch of proxies in a single transaction, the start index is picked for you automatically.</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">New Mint <span class="tag" id="mintModeTag">Token.claimRank</span></div>
+
+      <label>Number of mints <span id="mintCountRange" style="color:var(--dim);font-weight:400">min 1 · max 100 per batch</span></label>
+      <div class="input-row">
+        <input type="number" id="mintCount" value="1" min="1" max="100" />
+        <button class="btn btn-ghost btn-sm" onclick="setMaxCount()">MAX</button>
+      </div>
+
+      <label>Duration (days) <span id="mintTermRange" style="color:var(--dim);font-weight:400">min 7 · max loading…</span></label>
+      <div class="input-row">
+        <input type="number" id="mintTerm" value="7" min="7" max="1000" />
+        <button class="btn btn-ghost btn-sm" onclick="setMaxTerm()">MAX</button>
+      </div>
+
+      <p class="hint" id="mintUnlockHint">Unlocks —</p>
+      <p class="hint" id="mintFeeHint">Fee: loading…</p>
+      <p class="hint" id="mintGasHint">Connect wallet to estimate gas</p>
+
+      <button class="btn btn-primary btn-block mt-12" id="mintBtn" onclick="doMint()" disabled>Claim Rank</button>
+      <p class="hint mt-12">Claiming within a day of unlock is penalty-free; waiting longer applies a growing penalty on the reward.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Mint Preview</div>
+      <table>
+        <tr><td>Mints</td><td id="previewCount" class="mono">1</td></tr>
+        <tr><td>Rank(s)</td><td id="previewRank" class="mono">—</td></tr>
+        <tr><td>Amplifier (locked)</td><td id="previewAmp">—</td></tr>
+        <tr><td>EAA Rate (locked)</td><td id="previewEaa">—</td></tr>
+        <tr><td>Unlock date</td><td id="previewMat">—</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CLAIM ===================== -->
+<section class="page" id="page-claim">
+  <h1>Claim Mint Reward</h1>
+  <p class="subtitle">Solo mint on this wallet uses Token.claimMintReward. Batch proxies are grouped by the batch they were minted in, soonest maturing first claim a group in one tx, or claim it and reopen at a new term with Remint.</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Solo Mint on Wallet <span class="tag">Token</span></div>
+      <div id="soloMintStatus" class="state-box">Connect wallet…</div>
+      <button class="btn btn-ghost btn-block mt-12" id="claimBtn" onclick="doClaimReward()" disabled>Claim Solo Reward</button>
+      <hr style="border:none;border-top:1px solid var(--border);margin:18px 0" />
+      <div class="card-title">Claim & Share / Stake (solo only)</div>
+      <div class="tabs">
+        <button class="active" data-tab="share">Share</button>
+        <button data-tab="stakeClaim">Stake %</button>
+      </div>
+      <div id="tab-share">
+        <label>Share to address</label>
+        <input type="text" id="shareAddr" placeholder="0x…" />
+        <label class="mt-12">Percent to share (1–100)</label>
+        <input type="number" id="sharePct" value="50" min="1" max="100" />
+        <button class="btn btn-ghost btn-block mt-12" id="shareBtn" onclick="doClaimShare()" disabled>Claim & Share</button>
+      </div>
+      <div id="tab-stakeClaim" style="display:none">
+        <label>Percent to stake (0–100)</label>
+        <input type="number" id="stakePct" value="50" min="0" max="100" />
+        <label class="mt-12">Stake term (days)</label>
+        <input type="number" id="stakeTerm" value="30" min="7" max="1000" />
+        <button class="btn btn-ghost btn-block mt-12" id="stakeClaimBtn" onclick="doClaimStake()" disabled>Claim & Stake</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Your Batch Proxies <span class="tag">BatchMinter</span></div>
+      <p class="hint" id="proxyCount">proxiesOf: —</p>
+      <button class="btn btn-ghost btn-sm" onclick="loadProxies()">Refresh proxy list</button>
+      <div id="proxyList" class="mt-12 state-box">Connect wallet to load proxies</div>
+      <p class="hint mt-12">Ready rows show a <strong>Remint ♻</strong> button, click it to claim that batch and reopen it at a new term in one tx.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Claim + Remint confirm modal: opened from a row's Remint ♻ button, which already
+     carries its start index + count, so the only thing left to ask for is the term. -->
+<div id="remintModal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">Claim + Remint ♻ <span class="tag">BatchMinter.batchClaimAndRemint</span></div>
+    <p class="hint" id="remintModalSub">—</p>
+    <label>New term (days)</label>
+    <input type="number" id="remintModalTerm" value="7" min="7" max="1000" />
+    <p class="hint mt-12" id="remintModalFee">Fee: —</p>
+    <div style="display:flex; gap:8px; margin-top:16px;">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeRemintModal()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" onclick="confirmRemint()">Confirm Claim + Remint</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== STAKE ===================== -->
+<section class="page" id="page-stake">
+  <h1>Stake FUEL</h1>
+  <p class="subtitle">Lock FUEL for yield. Current APY declines over time from 20%.</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Create Stake</div>
+      <label>Amount (FUEL)</label>
+      <div class="input-row">
+        <input type="number" id="stakeAmount" placeholder="0.0" step="any" />
+        <button class="btn btn-ghost btn-sm" onclick="setMaxStakeAmount()">MAX</button>
+      </div>
+      <p class="hint" id="stakeBalHint">Balance: —</p>
+      <label>Term (days) <span id="stakeTermRange" style="color:var(--dim);font-weight:400">min 7 · max 1000</span></label>
+      <div class="input-row">
+        <input type="number" id="stakeDays" value="90" min="7" max="1000" />
+        <button class="btn btn-ghost btn-sm" onclick="setMaxStakeTerm()">MAX</button>
+      </div>
+      <p class="hint" id="stakeTermHint">On-chain: term must be 7–1000 days (MAX_TERM_END).</p>
+      <button class="btn btn-primary btn-block mt-12" id="stakeBtn" onclick="doStake()" disabled>Stake</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Your Stake</div>
+      <div id="userStakeInfo" class="state-box">Connect wallet…</div>
+      <button class="btn btn-green btn-block mt-12" id="withdrawBtn" onclick="doWithdraw()" disabled>Withdraw</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== BURNS & VAULT ===================== -->
+<section class="page" id="page-burns">
+  <h1>Burns & Vault</h1>
+  <p class="subtitle">Keeper actions and cycle status. Permissionless incentives for callers.</p>
+
+  <div class="grid-2 section-gap">
+    <div class="card">
+      <div class="card-title">Mint Vault Sweep <span class="tag">0.5% incentive</span></div>
+      <table>
+        <tr><td>ETH Balance</td><td id="bv-bal" class="mono">—</td></tr>
+        <tr><td>Current Cycle</td><td id="bv-cycle">—</td></tr>
+        <tr><td>Cycle Ends</td><td id="bv-end">—</td></tr>
+        <tr><td>Status</td><td id="bv-status">—</td></tr>
+        <tr><td>Total Swept</td><td id="bv-swept">—</td></tr>
+      </table>
+      <button class="btn btn-primary btn-block mt-12" id="sweepBtn" onclick="doSweep()" disabled>Sweep Vault</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Fuel Burner <span class="tag">keeper</span></div>
+      <table>
+        <tr><td>ETH Pool</td><td id="bb-eth" class="mono">—</td></tr>
+        <tr><td>FUEL Burnt</td><td id="bb-burnt">—</td></tr>
+        <tr><td>ETH Used</td><td id="bb-used">—</td></tr>
+        <tr><td>Daily Alloc</td><td id="bb-daily">—</td></tr>
+        <tr><td>Last Interval</td><td id="bb-interval">—</td></tr>
+      </table>
+      <p class="hint mt-12">Call the buy and burn keeper function via contract if interval is ready (1.5% incentive). UI triggers common path when available.</p>
+      <button class="btn btn-ghost btn-block" id="babBurnBtn" onclick="doBabBurn()" disabled>Buy & Burn Fuel</button>
+    </div>
+  </div>
+
+  <div class="card section-gap">
+    <div class="card-title">MORE Burner <span class="tag">30% · keeper</span></div>
+    <div class="grid-2">
+      <table>
+        <tr><td>ETH Pool</td><td id="mb-eth" class="mono">—</td></tr>
+        <tr><td>MORE Burnt</td><td id="mb-burnt">—</td></tr>
+        <tr><td>ETH Used</td><td id="mb-used">—</td></tr>
+        <tr><td>Daily Alloc</td><td id="mb-daily">—</td></tr>
+        <tr><td>Last Interval</td><td id="mb-interval">—</td></tr>
+        <tr><td>Slippage</td><td id="mb-slip">—</td></tr>
+      </table>
+      <div>
+        <button class="btn btn-primary btn-block mt-12" id="moreBurnBtn" onclick="doMoreBurn()" disabled>Buy & Burn More</button>
+        <p class="hint mt-12">Earns 1.5% of interval allocation. Reverts if interval already burned or TWAP guard fails.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card section-gap">
+    <div class="card-title">Contract Addresses</div>
+    <table class="mono" style="font-size:12px">
+      <tr><td>FUEL Token</td><td><a class="addr-link" target="_blank" id="a-fuel" href="#">—</a></td></tr>
+      <tr><td>BatchMinter</td><td><a class="addr-link" target="_blank" id="a-batch" href="#">—</a></td></tr>
+      <tr><td>Mint Vault</td><td><a class="addr-link" target="_blank" id="a-vault" href="#">—</a></td></tr>
+      <tr><td>FUEL Buy & Burn</td><td><a class="addr-link" target="_blank" id="a-bab" href="#">—</a></td></tr>
+      <tr><td>MORE Burner</td><td><a class="addr-link" target="_blank" id="a-more" href="#">—</a></td></tr>
+      <tr><td>Fee Distributor</td><td><a class="addr-link" target="_blank" id="a-fd" href="#">—</a></td></tr>
+    </table>
+  </div>
+</section>
+
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="donate">
+      <span class="donate-label">Donations:</span>
+      <a class="mono" id="donateLink" href="https://robin.etherscan.io/address/0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5" target="_blank" rel="noopener noreferrer" aria-label="Donation address 0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5 on the Robinhood Chain explorer"><span class="addr-full">0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5</span><span class="addr-short" aria-hidden="true">0x33cD…50e5</span></a>
+      <button type="button" class="copy-btn" id="copyDonate" data-addr="0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5">Copy</button>
+    </div>
+    <div class="footer-meta">
+      <span>&copy; <span id="footerYear">2026</span></span>
+      <span class="footer-sep" aria-hidden="true">&middot;</span>
+      <span>Built <a href="https://app.fuelmoretokens.com/" target="_blank" rel="noopener noreferrer">FUEL</a> for <a href="https://app.moretokens.com/" target="_blank" rel="noopener noreferrer">MORE</a></span>
+    </div>
+  </div>
+</footer>
+
+</div><!-- /.content -->
+</div><!-- /.app -->
+
+<div id="toast"></div>
+
+<script>
+/* ===================== CONFIG ===================== */
+const CHAIN_ID = 4663;
+const CHAIN_ID_HEX = "0x1237";
+const RPC_URLS = [
+  "https://rpc.mainnet.chain.robinhood.com",
+  "https://robinhood-rpc.publicnode.com",
+  "https://robinhood.drpc.org",
+];
+const EXPLORER = "https://robinhoodchain.blockscout.com";
+
+const ADDR = {
+  FUEL: "0xe60C1F5d9bA7f62a392a78472a3Ab83DD62467A3",
+  BATCH: "0xEaB771dB3883dC05DbEA1915F7e81910869bbc18",
+  VAULT: "0x492d111487f097759340dc119DE5887d58c38bB0",
+  BAB: "0x1f8e137117f78ef1ea84235f3e5423c46bf2d4a2",
+  MORE: "0x86f11A15E1793e7ce1F4264830d1973e80339A51",
+  FD: "0x2f69ff61802d9738e562e438d1f6326389d95861",
+  WETH: "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+};
+
+const FUEL_ABI = [
+  "function claimRank(uint256 term) payable",
+  "function claimMintReward() payable",
+  "function claimMintRewardAndShare(address other, uint256 pct) payable",
+  "function claimMintRewardAndStake(uint256 pct, uint256 term) payable",
+  "function stake(uint256 amount, uint256 term)",
+  "function withdraw()",
+  "function mintFee(uint256 gasPrice) view returns (uint256)",
+  "function claimFee(uint256 gasPrice) view returns (uint256)",
+  "function soloMintGas() view returns (uint256)",
+  "function minGasPrice() view returns (uint256)",
+  "function effectiveGasPrice(uint256 gasPrice) view returns (uint256)",
+  "function globalRank() view returns (uint256)",
+  "function activeMinters() view returns (uint256)",
+  "function activeStakes() view returns (uint256)",
+  "function totalTokenStaked() view returns (uint256)",
+  "function genesisTs() view returns (uint256)",
+  "function getCurrentAMP() view returns (uint256)",
+  "function getCurrentEAAR() view returns (uint256)",
+  "function getCurrentAPY() view returns (uint256)",
+  "function getCurrentMaxTerm() view returns (uint256)",
+  "function getGrossReward(uint256 rankDelta, uint256 amplifier, uint256 term, uint256 eaa) pure returns (uint256)",
+  "function userMints(address) view returns (address user, uint256 term, uint256 maturityTs, uint256 rank, uint256 amplifier, uint256 eaaRate)",
+  "function userStakes(address) view returns (uint256 term, uint256 maturityTs, uint256 amount, uint256 apy)",
+  "function balanceOf(address) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function feeDistributor() view returns (address)",
+  "function vault() view returns (address)",
+  "function buyAndBurn() view returns (address)",
+];
+
+const BATCH_ABI = [
+  "function batchClaimRank(uint256 startIndex, uint256 count, uint256 term) payable",
+  "function batchClaimReward(uint256 startIndex, uint256 count) payable",
+  "function batchClaimAndRemint(uint256 startIndex, uint256 count, uint256 newTerm) payable",
+  "function batchFee(uint256 count, uint256 gasPrice) view returns (uint256)",
+  "function batchClaimFee(uint256 count, uint256 gasPrice) view returns (uint256)",
+  "function proxyAddress(address user, uint256 index) view returns (address)",
+  "function proxiesOf(address user) view returns (uint256)",
+  "function implementation() view returns (address)",
+];
+
+const VAULT_ABI = [
+  "function CYCLE_LENGTH() view returns (uint256)",
+  "function genesisTs() view returns (uint256)",
+  "function currentCycle() view returns (uint256)",
+  "function totalSwept() view returns (uint256)",
+  "function currentCycleEnd() view returns (uint256)",
+  "function sweep()",
+  "function token() view returns (address)",
+  "function tokenBuyAndBurn() view returns (address)",
+];
+
+const BAB_ABI = [
+  "function totalETHBurn() view returns (uint256)",
+  "function totalTokenBurnt() view returns (uint256)",
+  "function ethUsedForBurns() view returns (uint256)",
+  "function DAILY_ALLOCATION_ETH_BURNING() view returns (uint256)",
+  "function startTimeStamp() view returns (uint32)",
+  "function lastETHBurnIntervalNumber() view returns (uint32)",
+  "function ethToTokenSlippage() view returns (uint8)",
+  "function swapETHForTokenAndBurn(uint32 deadline)",
+  "function distributeETHForBurning() payable",
+];
+
+const MORE_ABI = [
+  "function totalETHBurn() view returns (uint256)",
+  "function totalMoreBurnt() view returns (uint256)",
+  "function ethUsedForBurns() view returns (uint256)",
+  "function DAILY_ALLOCATION_ETH_BURNING() view returns (uint256)",
+  "function startTimeStamp() view returns (uint32)",
+  "function lastETHBurnIntervalNumber() view returns (uint32)",
+  "function lastBurnedETHIntervalStartTimestamp() view returns (uint32)",
+  "function ethToMoreSlippage() view returns (uint8)",
+  "function swapETHForMoreAndBurn(uint32 deadline)",
+  "function distributeETHForBurning() payable",
+  "function getMoreQuoteForETH(uint256 baseAmount) view returns (uint256)",
+];
+
+/* ===================== STATE ===================== */
+let provider, signer, account;
+let fuel, batch, vault, bab, more;
+let readProvider;
+let rpcReady = false;
+let userLoading = false;
+let rankHistory = [];         // {ts, rank} samples, used to project reward at maturity
+window._lastGlobalRank = 0n;
+
+/** Record a globalRank sample; keeps last 30 min (capped) so we can estimate mints/day. */
+function pushRankSample(rank) {
+  const now = Date.now() / 1000;
+  rankHistory.push({ ts: now, rank });
+  const cutoff = now - 1800;
+  rankHistory = rankHistory.filter((s) => s.ts >= cutoff);
+  if (rankHistory.length > 50) rankHistory.shift();
+}
+
+/** Estimated new ranks/day from samples taken this session. Null until we have enough spread. */
+function estimatedRanksPerDay() {
+  if (rankHistory.length < 2) return null;
+  const first = rankHistory[0];
+  const last = rankHistory[rankHistory.length - 1];
+  const dtSec = last.ts - first.ts;
+  if (dtSec < 120) return null; // not enough spread yet to trust the slope
+  const dRank = last.rank - first.rank;
+  if (dRank <= 0) return null; // no movement observed yet — a zero/negative slope isn't projectable
+  return dRank / (dtSec / 86400);
+}
+
+/* ===================== UTILS ===================== */
+const $ = (id) => document.getElementById(id);
+function fmt(n, d = 2) {
+  if (n == null || n === undefined) return "—";
+  const x = Number(n);
+  if (x >= 1e9) return (x / 1e9).toFixed(d) + "B";
+  if (x >= 1e6) return (x / 1e6).toFixed(d) + "M";
+  if (x >= 1e3) return (x / 1e3).toFixed(d) + "K";
+  return x.toLocaleString(undefined, { maximumFractionDigits: d });
+}
+function fmtEth(wei) {
+  if (wei == null) return "—";
+  return Number(ethers.formatEther(wei)).toLocaleString(undefined, { maximumFractionDigits: 6 }) + " ETH";
+}
+function fmtFuel(wei) {
+  if (wei == null) return "—";
+  if (wei === 0n) return "0 FUEL";
+  const asNumber = Number(ethers.formatEther(wei));
+  // A non-zero wei amount that still rounds to "0.00" at 2 decimals would
+  // misleadingly read as zero — fall back to more decimals so small-but-real
+  // amounts stay visible instead of disappearing.
+  if (asNumber > 0 && asNumber < 0.01) {
+    return asNumber.toFixed(8).replace(/0+$/, "").replace(/\.$/, "") + " FUEL";
+  }
+  return fmt(asNumber, 2) + " FUEL";
+}
+function shortAddr(a) {
+  if (!a) return "—";
+  return a.slice(0, 6) + "…" + a.slice(-4);
+}
+/** Human-readable date + time in the viewer's own locale/timezone, e.g. "Sep 24, 2026, 6:48 PM". */
+function fmtDateTime(tsSeconds) {
+  if (tsSeconds == null || !isFinite(Number(tsSeconds))) return "—";
+  const d = new Date(Number(tsSeconds) * 1000);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, {
+    year: "numeric", month: "short", day: "numeric",
+    hour: "numeric", minute: "2-digit",
+  });
+}
+/** Human-readable date only, e.g. "Sep 24, 2026". */
+function fmtDate(tsSeconds) {
+  if (tsSeconds == null || !isFinite(Number(tsSeconds))) return "—";
+  const d = new Date(Number(tsSeconds) * 1000);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+/** "in 3d 4h" / "2h ago" style relative label, used alongside the absolute date for quick scanning. */
+function fmtRelative(tsSeconds) {
+  const now = Date.now() / 1000;
+  const diff = Number(tsSeconds) - now;
+  const past = diff < 0;
+  const abs = Math.abs(diff);
+  const d = Math.floor(abs / 86400);
+  const h = Math.floor((abs % 86400) / 3600);
+  const m = Math.floor((abs % 3600) / 60);
+  let label;
+  if (d > 0) label = `${d}d ${h}h`;
+  else if (h > 0) label = `${h}h ${m}m`;
+  else label = `${Math.max(m, 0)}m`;
+  return past ? `${label} ago` : `in ${label}`;
+}
+function toast(msg, type = "") {
+  const el = $("toast");
+  el.textContent = msg;
+  el.className = "show " + type;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.className = ""; }, 5000);
+}
+function explorer(addr) {
+  return `${EXPLORER}/address/${addr}`;
+}
+function setState(el, kind, msg) {
+  if (!el) return;
+  if (kind === "loading") {
+    el.className = "state-box loading";
+    el.innerHTML = '<span class="spinner"></span>' + (msg || "Loading…");
+  } else if (kind === "error") {
+    el.className = "state-box error";
+    el.innerHTML = msg || "Failed to load";
+  } else if (kind === "empty") {
+    el.className = "state-box";
+    el.innerHTML = msg || "Nothing here";
+  } else {
+    el.className = "";
+    el.innerHTML = msg;
+  }
+}
+function setLinks() {
+  const map = { fuel: ADDR.FUEL, batch: ADDR.BATCH, vault: ADDR.VAULT, bab: ADDR.BAB, more: ADDR.MORE, fd: ADDR.FD };
+  for (const [k, v] of Object.entries(map)) {
+    const a = $("a-" + k);
+    if (a) { a.href = explorer(v); a.textContent = v; }
+  }
+}
+
+/* ===================== PROVIDER ===================== */
+const RPC_PROBE_TIMEOUT = 8000;
+let rpcUrlIndex = 0;      // which RPC_URLS entry is currently active
+let rpcRetryTimer = null;
+let rpcConsecutiveFailures = 0;
+
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, rej) => setTimeout(() => rej(new Error((label || "call") + " timed out")), ms)),
+  ]);
+}
+
+/** Probe a single RPC URL; resolves the provider or rejects. */
+async function probeRpc(url) {
+  const p = new ethers.JsonRpcProvider(url, CHAIN_ID, { staticNetwork: true });
+  const bn = await withTimeout(p.getBlockNumber(), RPC_PROBE_TIMEOUT, "RPC probe");
+  if (!bn && bn !== 0) throw new Error("bad block number");
+  return p;
+}
+
+/**
+ * Find a healthy RPC. Tries the last-known-good URL first, then races the
+ * rest in parallel so a single dead endpoint can't stall startup.
+ */
+async function findHealthyRpc() {
+  const ordered = [RPC_URLS[rpcUrlIndex], ...RPC_URLS.filter((_, i) => i !== rpcUrlIndex)];
+  try {
+    return { provider: await probeRpc(ordered[0]), url: ordered[0] };
+  } catch (e) {
+    console.warn("Preferred RPC failed", ordered[0], e.message);
+  }
+  const rest = ordered.slice(1);
+  if (!rest.length) throw new Error("No healthy RPC");
+  const attempts = rest.map((url) =>
+    probeRpc(url).then((provider) => ({ provider, url }))
+  );
+  try {
+    return await Promise.any(attempts);
+  } catch (agg) {
+    throw new Error("No healthy RPC (all endpoints unreachable)");
+  }
+}
+
+function bindContracts(runner) {
+  fuel = new ethers.Contract(ADDR.FUEL, FUEL_ABI, runner);
+  batch = new ethers.Contract(ADDR.BATCH, BATCH_ABI, runner);
+  vault = new ethers.Contract(ADDR.VAULT, VAULT_ABI, runner);
+  bab = new ethers.Contract(ADDR.BAB, BAB_ABI, runner);
+  more = new ethers.Contract(ADDR.MORE, MORE_ABI, runner);
+}
+
+async function initRead() {
+  $("chainBadge").textContent = "Connecting RPC…";
+  $("chainBadge").className = "chain-badge warn";
+  $("retryRpcBtn").style.display = "none";
+  try {
+    const { provider, url } = await findHealthyRpc();
+    readProvider = provider;
+    rpcUrlIndex = RPC_URLS.indexOf(url);
+    bindContracts(readProvider);
+    if (signer) fuel = fuel.connect(signer), batch = batch.connect(signer),
+      vault = vault.connect(signer), bab = bab.connect(signer), more = more.connect(signer);
+    rpcReady = true;
+    rpcConsecutiveFailures = 0;
+    $("chainBadge").textContent = "Robinhood · 4663";
+    $("chainBadge").className = "chain-badge";
+    $("retryRpcBtn").style.display = "none";
+    clearTimeout(rpcRetryTimer);
+    return;
+  } catch (e) {
+    rpcReady = false;
+    $("chainBadge").textContent = "RPC failed";
+    $("chainBadge").className = "chain-badge err";
+    $("retryRpcBtn").style.display = "inline-block";
+    scheduleRpcRetry();
+    throw e;
+  }
+}
+
+/** Auto-retry with backoff (10s, 20s, 40s… capped at 2min) instead of dying forever. */
+function scheduleRpcRetry() {
+  clearTimeout(rpcRetryTimer);
+  rpcConsecutiveFailures++;
+  const delay = Math.min(120000, 10000 * Math.pow(2, rpcConsecutiveFailures - 1));
+  rpcRetryTimer = setTimeout(() => {
+    initRead().then(() => refreshAll()).catch(() => {});
+  }, delay);
+}
+
+function manualRetryRpc() {
+  clearTimeout(rpcRetryTimer);
+  rpcConsecutiveFailures = 0;
+  $("retryRpcBtn").disabled = true;
+  initRead()
+    .then(() => refreshAll())
+    .catch((e) => toast("Still can't reach RPC: " + (e.message || e), "err"))
+    .finally(() => { $("retryRpcBtn").disabled = false; });
+}
+
+/** Wrap a read call: on failure, try once to fail over to another healthy RPC. */
+async function withReadFailover(fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    console.warn("Read call failed, attempting RPC failover", e.message);
+    try {
+      await initRead();
+      return await fn();
+    } catch (e2) {
+      throw e2;
+    }
+  }
+}
+
+/** Ask the wallet to switch to Robinhood Chain (adds it first if the wallet doesn't know it). */
+async function switchToRobinhood() {
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: CHAIN_ID_HEX }],
+    });
+  } catch (switchErr) {
+    const code = switchErr && (switchErr.code ?? switchErr.data?.originalError?.code);
+    if (code === 4902) {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: CHAIN_ID_HEX,
+          chainName: "Robinhood Chain",
+          nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+          rpcUrls: RPC_URLS,
+          blockExplorerUrls: [EXPLORER],
+        }],
+      });
+    } else if (code === 4001) {
+      throw new Error("Network switch was rejected. Please switch to Robinhood Chain (4663) manually.");
+    } else throw switchErr;
+  }
+}
+
+/** Show/hide the wrong-network banner based on the wallet's current chain (no permission or popup needed). */
+async function checkWalletNetwork() {
+  if (!window.ethereum) return;
+  try {
+    const cid = await window.ethereum.request({ method: "eth_chainId" });
+    $("netBanner").hidden = parseInt(cid, 16) === CHAIN_ID;
+  } catch (e) { console.warn("chain check failed", e.message); }
+}
+
+/** On page load: if the wallet already approved this site AND is on Robinhood Chain, reconnect quietly (no popups). */
+async function autoReconnect() {
+  if (!window.ethereum) return;
+  try {
+    const accts = await window.ethereum.request({ method: "eth_accounts" });
+    if (!accts || !accts.length) return;
+    const cid = await window.ethereum.request({ method: "eth_chainId" });
+    if (parseInt(cid, 16) !== CHAIN_ID) return;   // the banner handles the wrong-network case
+    await connectWallet(true);
+  } catch (e) { console.warn("auto-reconnect skipped", e.message); }
+}
+
+async function connectWallet(silent = false) {
+  if (!window.ethereum) {
+    if (!silent) toast("No wallet found. Install MetaMask or similar.", "err");
+    return;
+  }
+  try {
+    $("connectBtn").disabled = true;
+    $("connectBtn").textContent = "Connecting…";
+    setState($("userPosition"), "loading", "Connecting wallet…");
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    let net = await provider.getNetwork();
+    if (Number(net.chainId) !== CHAIN_ID) {
+      await switchToRobinhood();
+      provider = new ethers.BrowserProvider(window.ethereum);
+      net = await provider.getNetwork();
+      if (Number(net.chainId) !== CHAIN_ID) {
+        throw new Error("Wallet is still on the wrong network. Please switch to Robinhood Chain (4663).");
+      }
+    }
+    signer = await provider.getSigner();
+    account = await signer.getAddress();
+    $("connectBtn").textContent = shortAddr(account);
+    $("connectBtn").disabled = false;
+    $("connectBtn").classList.remove("btn-primary");
+    $("connectBtn").classList.add("btn-ghost");
+
+    if (!rpcReady) await initRead();
+
+    fuel = fuel.connect(signer);
+    batch = batch.connect(signer);
+    vault = vault.connect(signer);
+    bab = bab.connect(signer);
+    more = more.connect(signer);
+
+    enableActions(true);
+    if (!silent) toast("Connected " + shortAddr(account), "ok");
+    await loadUser();
+  } catch (e) {
+    console.error(e);
+    $("connectBtn").disabled = false;
+    $("connectBtn").textContent = "Connect Wallet";
+    const msg = e.shortMessage || e.message || "Connect failed";
+    if (!silent) toast(msg, "err");
+    setState($("userPosition"), "error", "Wallet connect failed: " + msg);
+  }
+}
+
+function enableActions(on) {
+  ["mintBtn","claimBtn","shareBtn","stakeClaimBtn","stakeBtn","withdrawBtn",
+   "sweepBtn","babBurnBtn","moreBurnBtn"].forEach(id => {
+    const el = $(id);
+    if (el) el.disabled = !on;
+  });
+}
+
+/* ===================== LOAD STATS ===================== */
+async function loadGlobal() {
+  const [rank, minters, amp, eaa, apy, maxTerm, staked, astakes, genesis] = await Promise.all([
+    fuel.globalRank(), fuel.activeMinters(), fuel.getCurrentAMP(), fuel.getCurrentEAAR(),
+    fuel.getCurrentAPY(), fuel.getCurrentMaxTerm(), fuel.totalTokenStaked(), fuel.activeStakes(),
+    fuel.genesisTs(),
+  ]);
+  window._lastGlobalRank = rank;
+  pushRankSample(Number(rank));
+  $("s-rank").textContent = rank.toLocaleString();
+  $("s-minters").textContent = minters.toLocaleString();
+  $("s-amp").textContent = amp.toString();
+  $("s-eaa").textContent = eaa.toString();
+  $("s-apy").textContent = apy.toString() + "%";
+  const mintMaxDays = Math.max(7, Math.floor(Number(maxTerm) / 86400));
+  const stakeMaxDays = 1000; // MAX_TERM_END on Token
+  const minDays = 7; // MIN_TERM ≈ 7 days
+  $("s-maxterm").textContent = mintMaxDays + " days";
+  $("s-staked").textContent = fmtFuel(staked);
+  $("s-astakes").textContent = astakes.toString();
+
+  // Apply live min/max to mint & stake inputs
+  ["mintTerm", "remintModalTerm", "stakeTerm"].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.min = String(minDays);
+    el.max = String(mintMaxDays);
+    let v = Number(el.value);
+    if (v < minDays) el.value = minDays;
+    if (v > mintMaxDays) el.value = mintMaxDays;
+  });
+  const stakeEl = $("stakeDays");
+  if (stakeEl) {
+    stakeEl.min = String(minDays);
+    stakeEl.max = String(stakeMaxDays);
+    let v = Number(stakeEl.value);
+    if (v < minDays) stakeEl.value = minDays;
+    if (v > stakeMaxDays) stakeEl.value = stakeMaxDays;
+  }
+  const mintRange = $("mintTermRange");
+  if (mintRange) mintRange.textContent = `min ${minDays} · max ${mintMaxDays} (on-chain)`;
+  const stakeRange = $("stakeTermRange");
+  if (stakeRange) stakeRange.textContent = `min ${minDays} · max ${stakeMaxDays}`;
+  const stakeHint = $("stakeTermHint");
+  if (stakeHint) stakeHint.textContent = `On-chain stake term: ${minDays}–${stakeMaxDays} days. Mint max term is currently ${mintMaxDays} days (grows with global rank).`;
+  window._termLimits = { minDays, mintMaxDays, stakeMaxDays };
+
+  // Vault
+  const [vBal, vGen, vCycle, vEnd, vSwept, vLen] = await Promise.all([
+    readProvider.getBalance(ADDR.VAULT),
+    vault.genesisTs(), vault.currentCycle(), vault.currentCycleEnd(),
+    vault.totalSwept(), vault.CYCLE_LENGTH(),
+  ]);
+  $("v-bal").textContent = fmtEth(vBal);
+  $("bv-bal").textContent = fmtEth(vBal);
+  const now = Math.floor(Date.now() / 1000);
+  const cycleLen = Number(vLen);
+  const gen = Number(vGen);
+  const end = Number(vEnd);
+  const cycle = Number(vCycle);
+  $("v-cycle").textContent = `Cycle ${cycle}`;
+  $("bv-cycle").textContent = cycle.toString();
+  $("v-end").textContent = end > 1e12 ? "—" : "Ends " + fmtDateTime(end) + " (" + fmtRelative(end) + ")";
+  $("bv-end").textContent = end > 1e12 ? "—" : fmtDateTime(end) + " (" + fmtRelative(end) + ")";
+  $("v-swept").textContent = "Total swept: " + fmtEth(vSwept);
+  $("bv-swept").textContent = fmtEth(vSwept);
+  if (gen === 0) {
+    $("bv-status").innerHTML = '<span class="status-wait">Clock not started</span>';
+    $("v-progress").style.width = "0%";
+  } else if (now >= end) {
+    $("bv-status").innerHTML = '<span class="status-ok">Ready to sweep</span>';
+    $("v-progress").style.width = "100%";
+    if (account) $("sweepBtn").disabled = false;
+  } else {
+    const start = gen + cycle * cycleLen;
+    const pct = Math.min(100, ((now - start) / cycleLen) * 100);
+    $("v-progress").style.width = pct.toFixed(1) + "%";
+    const left = end - now;
+    const days = Math.floor(left / 86400);
+    $("bv-status").innerHTML = `<span class="status-wait">${days}d left</span>`;
+  }
+
+  // BAB
+  try {
+    const [bEth, bBurnt, bUsed, bDaily, bInt] = await Promise.all([
+      bab.totalETHBurn(), bab.totalTokenBurnt(), bab.ethUsedForBurns(),
+      bab.DAILY_ALLOCATION_ETH_BURNING(), bab.lastETHBurnIntervalNumber(),
+    ]);
+    $("b-eth").textContent = fmtEth(bEth);
+    $("bb-eth").textContent = fmtEth(bEth);
+    $("b-burnt").textContent = "FUEL burnt: " + fmtFuel(bBurnt);
+    $("bb-burnt").textContent = fmtFuel(bBurnt);
+    $("b-used").textContent = "ETH used: " + fmtEth(bUsed);
+    $("bb-used").textContent = fmtEth(bUsed);
+    $("b-daily").textContent = "Daily drip: " + (Number(bDaily) / 100) + "%";
+    $("bb-daily").textContent = (Number(bDaily) / 100) + "%";
+    $("bb-interval").textContent = bInt.toString();
+  } catch (e) { console.warn("BAB", e); }
+
+  // MORE
+  try {
+    const [mEth, mBurnt, mUsed, mDaily, mInt, mSlip] = await Promise.all([
+      more.totalETHBurn(), more.totalMoreBurnt(), more.ethUsedForBurns(),
+      more.DAILY_ALLOCATION_ETH_BURNING(), more.lastETHBurnIntervalNumber(),
+      more.ethToMoreSlippage(),
+    ]);
+    $("m-eth").textContent = fmtEth(mEth);
+    $("mb-eth").textContent = fmtEth(mEth);
+    $("m-burnt").textContent = "MORE burnt: " + fmt(Number(ethers.formatEther(mBurnt)), 2);
+    $("mb-burnt").textContent = fmt(Number(ethers.formatEther(mBurnt)), 2);
+    $("m-used").textContent = "ETH used: " + fmtEth(mUsed);
+    $("mb-used").textContent = fmtEth(mUsed);
+    $("m-daily").textContent = "Daily drip: " + (Number(mDaily) / 100) + "%";
+    $("mb-daily").textContent = (Number(mDaily) / 100) + "%";
+    $("mb-interval").textContent = mInt.toString();
+    $("mb-slip").textContent = mSlip + "%";
+  } catch (e) { console.warn("MORE", e); }
+
+  // fee previews
+  await updateFeeHints();
+  await updateMintPreview();
+}
+
+async function getGasPrice() {
+  return withReadFailover(async () => {
+    const fd = await readProvider.getFeeData();
+    let gp = fd.maxFeePerGas || fd.gasPrice || ethers.parseUnits("2", "gwei");
+    const minG = await fuel.minGasPrice();
+    if (gp < minG) gp = minG;
+    return gp;
+  });
+}
+
+function setMaxCount() { $("mintCount").value = 100; updateFeeHints(); updateMintPreview(); }
+function setMaxTerm() {
+  const lim = window._termLimits || { mintMaxDays: 100 };
+  $("mintTerm").value = lim.mintMaxDays;
+  updateFeeHints(); updateMintPreview();
+}
+function setMaxStakeTerm() {
+  const lim = window._termLimits || { stakeMaxDays: 1000 };
+  $("stakeDays").value = lim.stakeMaxDays;
+}
+function setMaxStakeAmount() {
+  const bal = window._fuelBalance;
+  if (bal == null) return toast("Connect your wallet to see your balance", "err");
+  // Leave the value as the full balance in FUEL (18 decimals), trimmed of
+  // floating-point noise from formatEther.
+  $("stakeAmount").value = ethers.formatEther(bal);
+}
+
+async function updateFeeHints() {
+  try {
+    const gp = await getGasPrice();
+    const count = Math.max(1, Number($("mintCount").value) || 1);
+    const term = Number($("mintTerm").value) || 7;
+    let fee;
+    if (count === 1) {
+      fee = await fuel.mintFee(gp);
+      $("mintFeeHint").textContent = `Fee ≈ ${ethers.formatEther(fee)} ETH @ ${ethers.formatUnits(gp, "gwei")} gwei (+ 20% buffer for gas-price drift)`;
+      $("mintModeTag").textContent = "Token.claimRank";
+      $("mintBtn").textContent = "Claim Rank";
+    } else {
+      fee = await batch.batchFee(count, gp);
+      $("mintFeeHint").textContent = `Fee ≈ ${ethers.formatEther(fee)} ETH total for ${count} mints @ ${ethers.formatUnits(gp, "gwei")} gwei (+ 20% buffer)`;
+      $("mintModeTag").textContent = "BatchMinter.batchClaimRank";
+      $("mintBtn").textContent = `Batch Claim Rank (${count})`;
+    }
+
+    if (signer && account) {
+      try {
+        const value = fee * 120n / 100n;
+        let gasUnits;
+        if (count === 1) {
+          gasUnits = await fuel.claimRank.estimateGas(term, { value });
+        } else {
+          const start = Number(await batch.proxiesOf(account)) || 0;
+          gasUnits = await batch.batchClaimRank.estimateGas(start, count, term, { value });
+        }
+        $("mintGasHint").textContent = `Est. network gas ≈ ${ethers.formatEther(gasUnits * gp)} ETH (separate from the protocol fee above your wallet shows the exact figure)`;
+      } catch (e) {
+        $("mintGasHint").textContent = "Gas estimate unavailable right now — your wallet will show the exact figure before you confirm";
+      }
+    } else {
+      $("mintGasHint").textContent = "Connect wallet to estimate gas";
+    }
+  } catch (e) { console.warn(e); }
+}
+
+async function updateMintPreview() {
+  try {
+    const count = Math.max(1, Number($("mintCount").value) || 1);
+    const term = Number($("mintTerm").value) || 7;
+    const [rank, amp, eaa] = await Promise.all([
+      fuel.globalRank(), fuel.getCurrentAMP(), fuel.getCurrentEAAR(),
+    ]);
+    const r0 = Number(rank);
+    $("previewCount").textContent = String(count);
+    $("previewRank").textContent = count === 1
+      ? r0.toLocaleString()
+      : `${r0.toLocaleString()}–${(r0 + count - 1).toLocaleString()}`;
+    $("previewAmp").textContent = amp.toString();
+    $("previewEaa").textContent = eaa.toString();
+    const matTs = Date.now() / 1000 + term * 86400;
+    const matLabel = fmtDateTime(matTs) + " (" + fmtRelative(matTs) + ")";
+    $("previewMat").textContent = matLabel;
+    $("mintUnlockHint").textContent = "Unlocks " + matLabel;
+  } catch (_) {}
+}
+
+/** Sum getGrossReward() across mints, using each mint's own locked amp/term/eaa and the current global rank.
+ *  Caches the per-mint result onto m.reward so the render step below doesn't have to fetch it again. */
+async function totalPendingReward(mints, globalRank) {
+  const gr = BigInt(globalRank);
+  await Promise.all(mints.map(async (m) => {
+    const rankDelta = gr > m.rank ? gr - m.rank : 0n;
+    if (rankDelta <= 0n) { m.reward = 0n; return; }
+    try {
+      m.reward = await fuel.getGrossReward(rankDelta, m.amplifier, m.term, m.eaaRate);
+    } catch (e) {
+      m.reward = null;
+    }
+  }));
+  return mints.reduce((a, m) => a + (m.reward || 0n), 0n);
+}
+
+/** Fetch all batch-proxy mints for the connected wallet, in small parallel batches
+ *  instead of one-at-a-time (was up to 128 sequential RPC round-trips). */
+async function fetchProxyMints() {
+  if (!account) return [];
+  const n = Number(await batch.proxiesOf(account));
+  const max = Math.min(n, 64);
+  const CONCURRENCY = 8; // keep some cap so we don't slam the RPC node with 64 at once
+  const out = [];
+  for (let start = 0; start < max; start += CONCURRENCY) {
+    const end = Math.min(start + CONCURRENCY, max);
+    const chunk = await Promise.all(
+      Array.from({ length: end - start }, (_, k) => {
+        const i = start + k;
+        return (async () => {
+          try {
+            const p = await batch.proxyAddress(account, i);
+            const info = await fuel.userMints(p);
+            return {
+              index: i,
+              proxy: p,
+              rank: info.rank,
+              term: info.term,
+              maturityTs: info.maturityTs,
+              amplifier: info.amplifier,
+              eaaRate: info.eaaRate,
+              active: info.rank > 0n,
+            };
+          } catch (e) {
+            console.warn("proxy", i, e);
+            return null;
+          }
+        })();
+      })
+    );
+    out.push(...chunk.filter(Boolean));
+  }
+  return { total: n, mints: out };
+}
+
+/**
+ * Sizes a .scroll-table container so exactly `visibleRows` body rows (plus the
+ * header) are visible before scrolling kicks in, no matter how tall each row
+ * renders (wrapped columns, small screens, etc.) — measured from the actual
+ * rendered DOM rather than a guessed pixel height.
+ */
+function sizeScrollTableToRows(container, visibleRows = 5) {
+  if (!container) return;
+  const table = container.querySelector("table");
+  if (!table) return;
+  const headerRow = table.querySelector("tr");
+  const bodyRows = Array.from(table.querySelectorAll("tr")).slice(1);
+  if (bodyRows.length <= visibleRows) {
+    container.style.maxHeight = "none";
+    container.style.overflowY = "visible";
+    return;
+  }
+  let total = headerRow ? headerRow.getBoundingClientRect().height : 0;
+  for (let i = 0; i < visibleRows && i < bodyRows.length; i++) {
+    total += bodyRows[i].getBoundingClientRect().height;
+  }
+  container.style.maxHeight = Math.ceil(total) + "px";
+  container.style.overflowY = "auto";
+}
+
+function mintStatusLabel(matTs) {
+  const mat = Number(matTs);
+  const now = Date.now() / 1000;
+  if (now > mat) return { text: "Ready", cls: "status-ok", ready: true };
+  const left = mat - now;
+  const d = Math.floor(left / 86400);
+  const h = Math.floor((left % 86400) / 3600);
+  return { text: d > 0 ? `${d}d ${h}h` : `${h}h`, cls: "status-wait", ready: false };
+}
+
+/**
+ * Group proxy mints that were created in the same batch tx into a single entry.
+ * Mints from one batchClaimRank() call get consecutive indices and identical
+ * term + maturityTs, so that's used as the signature for "same batch". Inactive
+ * (already-claimed / empty) consecutive slots are grouped together too.
+ */
+function groupProxyMints(mints) {
+  const groups = [];
+  let i = 0;
+  while (i < mints.length) {
+    const m = mints[i];
+    let j = i + 1;
+    while (
+      j < mints.length &&
+      mints[j].active === m.active &&
+      mints[j].index === mints[j - 1].index + 1 &&
+      (!m.active || (mints[j].term === m.term && mints[j].maturityTs === m.maturityTs))
+    ) j++;
+    groups.push({ startIndex: m.index, endIndex: mints[j - 1].index, count: j - i, active: m.active, sample: m });
+    i = j;
+  }
+  return groups;
+}
+
+/**
+ * silent=true is used for background refreshes (the 45s poll): it skips
+ * resetting the sections to a "loading…" skeleton first, so data already
+ * on screen doesn't blank out and flicker while someone's reading it.
+ * The content is still refetched and swapped in once ready either way.
+ */
+async function loadUser(silent = false) {
+  if (!account) {
+    setState($("userPosition"), "empty", "Connect wallet to see your mint, stake & balances");
+    setState($("soloMintStatus"), "empty", "Connect wallet…");
+    setState($("userStakeInfo"), "empty", "Connect wallet…");
+    setState($("proxyList"), "empty", "Connect wallet to load proxies");
+    closeRemintModal();
+    return;
+  }
+  if (!rpcReady) {
+    setState($("userPosition"), "error", "RPC not connected — cannot load user data. Refresh the page.");
+    return;
+  }
+  if (userLoading) return;
+  userLoading = true;
+
+  if (!silent) {
+    setState($("userPosition"), "loading", "Loading your mints & balances…");
+    setState($("soloMintStatus"), "loading", "Loading…");
+    setState($("userStakeInfo"), "loading", "Loading…");
+    setState($("proxyList"), "loading", "Loading proxies…");
+  }
+
+  try {
+  const [bal, mint, stake, proxyData] = await Promise.all([
+    fuel.balanceOf(account),
+    fuel.userMints(account),
+    fuel.userStakes(account),
+    fetchProxyMints(),
+  ]);
+
+  const activeProxies = proxyData.mints.filter((m) => m.active);
+  const readyProxies = activeProxies.filter((m) => mintStatusLabel(m.maturityTs).ready);
+  const pendingMints = [...(mint.rank > 0n ? [mint] : []), ...activeProxies];
+  const pendingTotal = await totalPendingReward(pendingMints, window._lastGlobalRank);
+
+  // ---- Dashboard: Your Position ----
+  let html = `<table>
+    <tr><td>Wallet</td><td class="mono">${shortAddr(account)}</td></tr>
+    <tr><td>FUEL Balance</td><td class="mono">${fmtFuel(bal)}</td></tr>
+    <tr><td>Active mints</td><td class="mono">${pendingMints.length} (${readyProxies.length + (mint.rank > 0n && mintStatusLabel(mint.maturityTs).ready ? 1 : 0)} claimable)</td></tr>
+    <tr><td>Est. pending FUEL</td><td class="mono">${fmtFuel(pendingTotal)}</td></tr>
+    <tr><td>Batch proxies</td><td class="mono">${proxyData.total} total · ${activeProxies.length} active · ${readyProxies.length} claimable</td></tr>`;
+
+  if (mint.rank > 0n) {
+    const st = mintStatusLabel(mint.maturityTs);
+    html += `<tr><td>Solo mint (wallet)</td><td class="mono">rank ${mint.rank} · <span class="${st.cls}">${st.text}</span></td></tr>`;
+  } else {
+    html += `<tr><td>Solo mint (wallet)</td><td class="status-wait">None</td></tr>`;
+  }
+
+  if (stake.amount > 0n) {
+    html += `<tr><td>Stake</td><td class="mono">${fmtFuel(stake.amount)} @ ${stake.apy}% APY</td></tr>
+      <tr><td>Stake matures</td><td>${fmtDateTime(stake.maturityTs)} (${fmtRelative(stake.maturityTs)})</td></tr>`;
+  }
+
+  if (activeProxies.length > 0) {
+    html += `</table><div style="margin-top:12px;max-height:280px;overflow:auto"><table>
+      <tr><th>Mint</th><th>Rank</th><th>Term</th><th>Maturity</th><th>Status</th><th></th></tr>`;
+    activeProxies.forEach((m, i) => {
+      const st = mintStatusLabel(m.maturityTs);
+      const matStr = fmtDateTime(m.maturityTs);
+      html += `<tr>
+        <td title="proxy index ${m.index}">Mint ${i + 1}</td>
+        <td class="mono">${m.rank}</td>
+        <td>${m.term}d</td>
+        <td class="mono" style="font-size:12px">${matStr}</td>
+        <td class="${st.cls}">${st.text}</td>
+        <td>${st.ready
+          ? `<button class="btn btn-sm btn-primary" onclick="doClaimOneProxy(${m.index}, true)">Claim</button>`
+          : `<button class="btn btn-sm btn-ghost" onclick="doClaimOneProxy(${m.index}, false, '${st.text}')">Claim</button>`}</td>
+      </tr>`;
+    });
+    html += `</table></div>`;
+  } else {
+    html += `</table><p class="hint mt-12">No active batch mints found on this wallet. If you minted from a different key, connect that wallet.</p>`;
+  }
+  $("userPosition").className = "";
+  $("userPosition").innerHTML = html;
+
+  // Solo mint status box — buttons stay clickable whenever a solo mint exists,
+  // even before maturity; the ready state + remaining time are stashed on the
+  // buttons so their click handlers can pop a "not matured yet" toast instead
+  // of just silently doing nothing (a disabled button eats the click).
+  if (mint.rank > 0n) {
+    const st = mintStatusLabel(mint.maturityTs);
+    $("soloMintStatus").className = "";
+    $("soloMintStatus").innerHTML = `Rank ${mint.rank} · ${mint.term}d · <span class="${st.cls}">${st.text}</span>`;
+    ["claimBtn", "shareBtn", "stakeClaimBtn"].forEach((id) => {
+      const el = $(id);
+      el.disabled = false;
+      el.dataset.ready = st.ready ? "1" : "";
+      el.dataset.remaining = st.text;
+    });
+  } else {
+    setState($("soloMintStatus"), "empty", "No solo mint on this wallet");
+    ["claimBtn", "shareBtn", "stakeClaimBtn"].forEach((id) => {
+      const el = $(id);
+      el.disabled = true;
+      delete el.dataset.ready;
+      delete el.dataset.remaining;
+    });
+  }
+
+  // Stake page
+  window._fuelBalance = bal;
+  $("stakeBalHint").textContent = "Balance: " + fmtFuel(bal);
+  if (stake.amount > 0n) {
+    const mat = Number(stake.maturityTs);
+    $("userStakeInfo").className = "";
+    $("userStakeInfo").innerHTML = `<table>
+      <tr><td>Amount</td><td class="mono">${fmtFuel(stake.amount)}</td></tr>
+      <tr><td>APY (locked)</td><td>${stake.apy}%</td></tr>
+      <tr><td>Term</td><td>${stake.term} days</td></tr>
+      <tr><td>Matures</td><td>${fmtDateTime(mat)} (${fmtRelative(mat)})</td></tr>
+    </table>`;
+    $("withdrawBtn").disabled = false;
+  } else {
+    setState($("userStakeInfo"), "empty", "No active stake");
+    $("withdrawBtn").disabled = true;
+  }
+
+  // Proxies list on Claim page — mints created in the same batch tx (consecutive
+  // indices sharing the same term + unlock time) are grouped into one row, with
+  // one Claim button that claims the whole range in a single transaction.
+  const proxyGroupsForCount = groupProxyMints(proxyData.mints);
+  const activeBatchCount = proxyGroupsForCount.filter((g) => g.active).length;
+  $("proxyCount").textContent = `proxiesOf: ${proxyData.total} (${activeProxies.length} active) Batches: ${activeBatchCount}`;
+  if (proxyData.total === 0) {
+    setState($("proxyList"), "empty", "No proxies yet for this wallet");
+  } else {
+    const groups = proxyGroupsForCount;
+    // Show soonest-maturing first. Empty/claimed slots have no meaningful
+    // maturity, so they're pushed to the bottom instead of sorted in.
+    const displayGroups = groups.slice().sort((a, b) => {
+      if (a.active !== b.active) return a.active ? -1 : 1;
+      if (!a.active) return 0;
+      const ta = a.sample.maturityTs, tb = b.sample.maturityTs;
+      return ta < tb ? -1 : ta > tb ? 1 : 0;
+    });
+    const activeGroups = groups.filter((g) => g.active);
+    const groupFees = new Map();
+    if (activeGroups.length > 0) {
+      try {
+        const gp = await getGasPrice();
+        await Promise.all(activeGroups.map(async (g) => {
+          try {
+            const fee = await batch.batchClaimFee(g.count, gp);
+            groupFees.set(g.startIndex, fee * 120n / 100n);
+          } catch (e) {
+            groupFees.set(g.startIndex, null);
+          }
+        }));
+      } catch (e) { console.warn("group fee estimate failed", e); }
+    }
+
+    let rows = `<div class="scroll-table"><table><tr><th>Mint(s)</th><th>Amount</th><th>Term</th><th>Unlock</th><th>Est. claim cost</th><th>Status</th><th></th></tr>`;
+    for (const g of displayGroups) {
+      const label = g.count > 1 ? `${g.startIndex + 1} – ${g.endIndex + 1}` : `${g.startIndex + 1}`;
+      const idxTitle = g.count > 1 ? `proxy indices ${g.startIndex}–${g.endIndex}` : `proxy index ${g.startIndex}`;
+      if (!g.active) {
+        rows += `<tr><td title="${idxTitle}">${label}</td><td class="mono">${g.count}</td><td colspan="4" class="status-wait">empty / claimed</td></tr>`;
+        continue;
+      }
+      const st = mintStatusLabel(g.sample.maturityTs);
+      const unlock = fmtDateTime(g.sample.maturityTs);
+      const fee = groupFees.get(g.startIndex);
+      const costText = fee == null ? "—" : `${ethers.formatEther(fee)} ETH`;
+      const claimBtn = st.ready
+        ? `<button class="btn btn-sm btn-primary" onclick="doClaimGroup(${g.startIndex}, ${g.count}, true)">Claim</button>`
+        : `<button class="btn btn-sm btn-ghost" onclick="doClaimGroup(${g.startIndex}, ${g.count}, false, '${st.text}')">Claim</button>`;
+      const setStartBtn = st.ready
+        ? `<button class="btn btn-sm btn-ghost" onclick="openRemintModal(${g.startIndex}, ${g.count})" title="Claim this range and reopen it at a new term">Remint ♻</button>`
+        : `<button class="btn btn-sm btn-ghost" onclick="notReadyToast('${st.text}')" title="Not matured yet">Remint ♻</button>`;
+      rows += `<tr>
+        <td title="${idxTitle}">${label}</td>
+        <td class="mono">${g.count}</td>
+        <td>${g.sample.term}d</td>
+        <td class="mono" style="font-size:12px">${unlock}</td>
+        <td class="mono">${costText}</td>
+        <td class="${st.cls}">${st.text}</td>
+        <td style="white-space:nowrap">${claimBtn} ${setStartBtn}</td>
+      </tr>`;
+    }
+    rows += "</table></div>";
+    if (displayGroups.length > 5) rows += `<p class="hint mt-12">Showing ${displayGroups.length} groups, soonest-maturing first — scroll for the rest.</p>`;
+    rows += `<p class="hint mt-12">Est. claim cost is the on-chain fee (+20% buffer) for claiming that whole range in one tx; your wallet will show the exact gas on top. Want to claim and immediately reopen at a new term instead? Use “Remint ♻” to claim that range and reopen it in one tx.</p>`;
+    if (proxyData.total > proxyData.mints.length) rows += `<p class="hint">Showing first ${proxyData.mints.length} of ${proxyData.total}</p>`;
+    $("proxyList").className = "";
+    $("proxyList").innerHTML = rows;
+    sizeScrollTableToRows($("proxyList").querySelector(".scroll-table"), 5);
+  }
+
+  } catch (e) {
+    console.error("loadUser", e);
+    const msg = e.shortMessage || e.message || String(e);
+    if (silent) {
+      // Background refresh failed — keep whatever's already on screen instead
+      // of blowing it away over a transient RPC hiccup; just log it quietly.
+      console.warn("Background refresh failed, keeping existing data on screen:", msg);
+    } else {
+      setState($("userPosition"), "error", "Failed to load user data: " + msg);
+      setState($("soloMintStatus"), "error", "Error loading");
+      setState($("userStakeInfo"), "error", "Error loading");
+      setState($("proxyList"), "error", "Failed: " + msg);
+      toast("User data load failed: " + msg, "err");
+    }
+  } finally {
+    userLoading = false;
+  }
+}
+
+/**
+ * Remint modal state: which group (start index + count) the currently-open
+ * modal is acting on. Set by openRemintModal(), read by confirmRemint().
+ * There's no "next index" to derive here the way a fresh mint has (that's
+ * just proxiesOf(account)) — remint operates on whichever existing batch a
+ * person clicked "Remint ♻" on in the proxy list, so start/count always come
+ * from that specific row; the modal only asks for the one thing that's a
+ * genuine choice, the new term.
+ */
+let _remintTarget = null;
+
+function openRemintModal(startIndex, count) {
+  _remintTarget = { start: startIndex, count };
+  const label = count > 1
+    ? `Mint ${startIndex + 1}–${startIndex + count} · ${count} proxies claim and reopen together`
+    : `Mint ${startIndex + 1} will claim and reopen`;
+  $("remintModalSub").textContent = label;
+  $("remintModalTerm").value = 7;
+  $("remintModalFee").textContent = "Fee: —";
+  $("remintModal").style.display = "flex";
+  updateRemintModalFee();
+}
+
+function closeRemintModal() {
+  $("remintModal").style.display = "none";
+  _remintTarget = null;
+}
+
+async function updateRemintModalFee() {
+  if (!_remintTarget) return;
+  try {
+    const gp = await getGasPrice();
+    const [claimFee, mintFee] = await Promise.all([
+      batch.batchClaimFee(_remintTarget.count, gp),
+      batch.batchFee(_remintTarget.count, gp),
+    ]);
+    const total = claimFee + mintFee;
+    $("remintModalFee").textContent =
+      `Fee ≈ ${ethers.formatEther(total)} ETH (claim + remint combined — no dedicated combo-fee call exists on-chain, so this sums the two, + 20% buffer)`;
+  } catch (e) {
+    $("remintModalFee").textContent = "Fee estimate unavailable right now — your wallet will show the exact figure before you confirm";
+  }
+}
+
+async function confirmRemint() {
+  if (!_remintTarget) return;
+  const term = Number($("remintModalTerm").value);
+  const c = clampTerm(term, "mint");
+  if (!c.ok) return toast(c.msg, "err");
+  const { start, count } = _remintTarget;
+  closeRemintModal();
+  const gp = await getGasPrice();
+  const [claimFee, mintFee] = await Promise.all([
+    batch.batchClaimFee(count, gp),
+    batch.batchFee(count, gp),
+  ]);
+  const value = (claimFee + mintFee) * 120n / 100n;
+  await withTx(
+    () => batch.batchClaimAndRemint(start, count, term, { value }),
+    `Claim + Remint [${start}..${start + count - 1}]`
+  );
+}
+
+async function loadProxies() {
+  if (!account) {
+    setState($("proxyList"), "empty", "Connect wallet to load proxies");
+    return;
+  }
+  setState($("proxyList"), "loading", "Refreshing proxies…");
+  try {
+    await loadUser();
+  } catch (e) {
+    setState($("proxyList"), "error", "Refresh failed: " + (e.message || e));
+  }
+}
+
+/** silent=true (used by the 45s background poll) avoids loading-skeleton flicker
+ *  and repeated error toasts for what's usually just a transient hiccup. */
+async function refreshAll(silent = false) {
+  if (!rpcReady) {
+    try { await initRead(); } catch (e) { console.warn("refreshAll: RPC still down", e.message); return; }
+  }
+  try {
+    await withReadFailover(loadGlobal);
+  } catch (e) {
+    console.error("loadGlobal", e);
+    if (silent) console.warn("Background refresh: couldn't reach RPC, will retry next poll");
+    else toast("Couldn't reach the RPC — will keep retrying in the background.", "err");
+    return; // don't try user/proxy loads against a dead connection
+  }
+  if (account) {
+    try {
+      await withReadFailover(() => loadUser(silent));
+    } catch (e) {
+      console.error("loadUser", e);
+    }
+  }
+}
+
+/* ===================== ACTIONS ===================== */
+async function withTx(fn, label) {
+  try {
+    toast(label + "…");
+    const tx = await fn();
+    toast("Submitted " + shortAddr(tx.hash));
+    const rc = await tx.wait();
+    if (rc.status !== 1) throw new Error("Tx reverted");
+    toast(label + " confirmed", "ok");
+    await refreshAll();
+  } catch (e) {
+    console.error(e);
+    const msg = e.reason || e.shortMessage || e.message || String(e);
+    toast(msg.slice(0, 180), "err");
+  }
+}
+
+function clampTerm(term, kind) {
+  const lim = window._termLimits || { minDays: 7, mintMaxDays: 100, stakeMaxDays: 1000 };
+  const max = kind === "stake" ? lim.stakeMaxDays : lim.mintMaxDays;
+  if (term < lim.minDays) return { ok: false, msg: `Min term is ${lim.minDays} days` };
+  if (term > max) return { ok: false, msg: `Max term is ${max} days` };
+  return { ok: true };
+}
+
+/**
+ * Unified mint action. count === 1 mints solo on the wallet (Token.claimRank).
+ * count > 1 opens a batch via BatchMinter.batchClaimRank, with the start index
+ * derived from the wallet's current proxy count — no manual index entry needed.
+ */
+async function doMint() {
+  const count = Math.max(1, Number($("mintCount").value) || 1);
+  const term = Number($("mintTerm").value);
+  const c = clampTerm(term, "mint");
+  if (!c.ok) return toast(c.msg, "err");
+  if (count > 100) return toast("Max 100 mints per batch", "err");
+  const gp = await getGasPrice();
+  if (count === 1) {
+    const fee = await fuel.mintFee(gp);
+    const value = fee * 120n / 100n; // 20% buffer
+    await withTx(() => fuel.claimRank(term, { value }), "Claim Rank");
+  } else {
+    const start = Number(await batch.proxiesOf(account)) || 0;
+    const fee = await batch.batchFee(count, gp);
+    const value = fee * 120n / 100n;
+    await withTx(() => batch.batchClaimRank(start, count, term, { value }), `Batch mint (${count})`);
+  }
+}
+
+/** Buttons whose action would revert before maturity stash readiness + the
+ *  remaining-time label (see mintStatusLabel) so their click handler can show
+ *  this instead of silently doing nothing or sending a doomed transaction. */
+function notReadyToast(remaining) {
+  toast(`Not matured yet — come back in ${remaining || "a bit"}.`, "err");
+}
+
+async function doClaimReward() {
+  if ($("claimBtn").dataset.ready !== "1") return notReadyToast($("claimBtn").dataset.remaining);
+  const gp = await getGasPrice();
+  const fee = await fuel.claimFee(gp);
+  const value = fee * 120n / 100n;
+  await withTx(() => fuel.claimMintReward({ value }), "Claim Reward");
+}
+
+/** Claim a single batch proxy by index via BatchMinter.batchClaimReward(index, 1).
+ *  ready/remaining come from the row's own status at render time. */
+async function doClaimOneProxy(index, ready = true, remaining = "") {
+  if (!ready) return notReadyToast(remaining);
+  const gp = await getGasPrice();
+  const fee = await batch.batchClaimFee(1, gp);
+  const value = fee * 120n / 100n;
+  await withTx(
+    () => batch.batchClaimReward(index, 1, { value }),
+    `Claim proxy #${index}`
+  );
+}
+
+/** Claim a whole grouped batch (one or more proxies minted together) in a single tx. */
+async function doClaimGroup(start, count, ready = true, remaining = "") {
+  if (!ready) return notReadyToast(remaining);
+  const gp = await getGasPrice();
+  const fee = await batch.batchClaimFee(count, gp);
+  const value = fee * 120n / 100n;
+  await withTx(
+    () => batch.batchClaimReward(start, count, { value }),
+    count > 1 ? `Claim batch [${start}..${start + count - 1}]` : `Claim proxy #${start}`
+  );
+}
+
+async function doClaimShare() {
+  if ($("shareBtn").dataset.ready !== "1") return notReadyToast($("shareBtn").dataset.remaining);
+  const other = $("shareAddr").value.trim();
+  const pct = Number($("sharePct").value);
+  if (!ethers.isAddress(other)) return toast("Invalid address", "err");
+  const gp = await getGasPrice();
+  const fee = await fuel.claimFee(gp);
+  const value = fee * 120n / 100n;
+  await withTx(() => fuel.claimMintRewardAndShare(other, pct, { value }), "Claim & Share");
+}
+
+async function doClaimStake() {
+  if ($("stakeClaimBtn").dataset.ready !== "1") return notReadyToast($("stakeClaimBtn").dataset.remaining);
+  const pct = Number($("stakePct").value);
+  const term = Number($("stakeTerm").value);
+  const c = clampTerm(term, "stake");
+  if (!c.ok) return toast(c.msg, "err");
+  const gp = await getGasPrice();
+  const fee = await fuel.claimFee(gp);
+  const value = fee * 120n / 100n;
+  await withTx(() => fuel.claimMintRewardAndStake(pct, term, { value }), "Claim & Stake");
+}
+
+async function doStake() {
+  const amount = ethers.parseEther($("stakeAmount").value || "0");
+  const term = Number($("stakeDays").value);
+  if (amount <= 0n) return toast("Enter amount", "err");
+  const c = clampTerm(term, "stake");
+  if (!c.ok) return toast(c.msg, "err");
+  await withTx(() => fuel.stake(amount, term), "Stake");
+}
+
+async function doWithdraw() {
+  await withTx(() => fuel.withdraw(), "Withdraw stake");
+}
+
+async function doSweep() {
+  await withTx(() => vault.sweep(), "Vault sweep");
+}
+
+async function doBabBurn() {
+  const deadline = Math.floor(Date.now() / 1000) + 600;
+  await withTx(() => bab.swapETHForTokenAndBurn(deadline), "FUEL burn interval");
+}
+
+async function doMoreBurn() {
+  const dl = Math.floor(Date.now() / 1000) + 600;
+  await withTx(() => more.swapETHForMoreAndBurn(dl), "MORE burn interval");
+}
+
+/* ===================== UI WIRING ===================== */
+/* Page routing — the current page lives in the URL hash (#claim, #stake, …)
+   so a refresh, back/forward, or a shared link lands on the same page. */
+function showPage(name) {
+  const btn = document.querySelector(`.nav button[data-page="${name}"]`);
+  const page = $("page-" + name);
+  if (!btn || !page) return false;           // unknown/empty hash: leave current page alone
+  document.querySelectorAll(".nav button").forEach(b => {
+    b.classList.remove("active");
+    b.removeAttribute("aria-current");
+  });
+  btn.classList.add("active");
+  btn.setAttribute("aria-current", "page");
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  page.classList.add("active");
+  return true;
+}
+const hashPage = () => decodeURIComponent(location.hash.slice(1));
+
+document.querySelectorAll(".nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const name = btn.dataset.page;
+    showPage(name);
+    if (hashPage() !== name) history.pushState(null, "", "#" + name);
+    window.scrollTo(0, 0);
+    setSidebar(false);
+  });
+});
+
+// Back/forward buttons and manual hash edits
+window.addEventListener("popstate", () => { showPage(hashPage()); });
+
+// Initial load: restore the page from the URL, else default to dashboard
+if (!showPage(hashPage())) showPage("dashboard");
+history.replaceState(null, "", "#" + document.querySelector(".nav button.active").dataset.page);
+
+/* Mobile sidebar drawer */
+function setSidebar(open) {
+  $("sidebar").classList.toggle("open", open);
+  $("sidebarBackdrop").classList.toggle("show", open);
+  $("menuBtn").setAttribute("aria-expanded", String(open));
+}
+$("menuBtn").addEventListener("click", () => setSidebar(true));
+$("sidebarClose").addEventListener("click", () => setSidebar(false));
+$("sidebarBackdrop").addEventListener("click", () => setSidebar(false));
+window.matchMedia("(min-width: 901px)").addEventListener("change", (e) => { if (e.matches) setSidebar(false); });
+
+/* Footer year: "2026" in the launch year, then "2026–<current year>" automatically */
+(function () {
+  const START_YEAR = 2026;
+  const now = new Date().getFullYear();
+  $("footerYear").textContent = now > START_YEAR ? START_YEAR + "\u2013" + now : String(START_YEAR);
+})();
+
+/* Copy donation address */
+$("copyDonate").addEventListener("click", async () => {
+  const addr = $("copyDonate").dataset.addr;
+  try {
+    await navigator.clipboard.writeText(addr);
+    toast("Donation address copied", "ok");
+  } catch (e) {
+    toast("Couldn't copy — select the address and copy manually", "err");
+  }
+});
+
+document.querySelectorAll(".tabs button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const parent = btn.parentElement;
+    parent.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    $("tab-share").style.display = btn.dataset.tab === "share" ? "block" : "none";
+    $("tab-stakeClaim").style.display = btn.dataset.tab === "stakeClaim" ? "block" : "none";
+  });
+});
+
+["mintTerm","mintCount"].forEach(id => {
+  const el = $(id);
+  if (el) el.addEventListener("input", () => { updateFeeHints(); updateMintPreview(); });
+});
+
+// Prevent typing/pasting a stake amount above the wallet's FUEL balance.
+(() => {
+  const el = $("stakeAmount");
+  if (!el) return;
+  el.addEventListener("input", () => {
+    const bal = window._fuelBalance;
+    if (bal == null || el.value === "") return;
+    const v = Number(el.value);
+    if (Number.isNaN(v)) return;
+    const balNum = Number(ethers.formatEther(bal));
+    if (v > balNum) el.value = ethers.formatEther(bal);
+  });
+})();
+
+// Prevent typing/pasting a stake term above the on-chain max (clamp in real time).
+["stakeDays", "stakeTerm", "remintModalTerm"].forEach(id => {
+  const el = $(id);
+  if (!el) return;
+  el.addEventListener("input", () => {
+    const lim = window._termLimits || { minDays: 7, stakeMaxDays: 1000 };
+    const max = id === "stakeDays" || id === "stakeTerm" ? lim.stakeMaxDays : lim.mintMaxDays;
+    if (el.value === "") return; // let them clear/backspace freely
+    let v = Number(el.value);
+    if (Number.isNaN(v)) return;
+    if (v > max) el.value = String(max);
+  });
+  el.addEventListener("blur", () => {
+    const lim = window._termLimits || { minDays: 7, stakeMaxDays: 1000, mintMaxDays: 100 };
+    const max = id === "stakeDays" || id === "stakeTerm" ? lim.stakeMaxDays : lim.mintMaxDays;
+    let v = Number(el.value);
+    if (el.value === "" || Number.isNaN(v)) return;
+    if (v < lim.minDays) el.value = String(lim.minDays);
+    else if (v > max) el.value = String(max);
+  });
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("remintModal").style.display !== "none") closeRemintModal();
+  if (e.key === "Escape") setSidebar(false);
+});
+$("remintModal").addEventListener("click", (e) => {
+  if (e.target === $("remintModal")) closeRemintModal();
+});
+
+if (window.ethereum) {
+  window.ethereum.on("accountsChanged", () => location.reload());
+  window.ethereum.on("chainChanged", () => location.reload());
+}
+
+/* Wrong-network banner: check now, and wire the one-click switch button */
+checkWalletNetwork();
+$("netSwitchBtn").addEventListener("click", async () => {
+  const btn = $("netSwitchBtn");
+  btn.disabled = true;
+  btn.textContent = "Switching…";
+  try {
+    await switchToRobinhood();
+    location.reload();            // fresh load → quiet reconnect on the right network
+  } catch (e) {
+    toast(e.shortMessage || e.message || "Couldn't switch network", "err");
+    btn.disabled = false;
+    btn.textContent = "Switch to Robinhood Chain";
+  }
+});
+
+setLinks();
+initRead()
+  .then(() => { autoReconnect(); return refreshAll(); })
+  .catch((e) => {
+    console.error(e);
+    toast("RPC error: " + (e.message || e), "err");
+    setState($("userPosition"), "error", "RPC failed — cannot load data. Refresh the page to retry.");
+  });
+setInterval(() => { refreshAll(true).catch((e) => console.warn("poll failed", e.message)); }, 45000);
+</script>
+</body>
+</html>
