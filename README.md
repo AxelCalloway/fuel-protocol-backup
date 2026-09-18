@@ -130,4 +130,3 @@ Interact at your own risk.
 ---
 
 **FUEL Protocol** · Robinhood Chain · Built by Trevon James
-```
