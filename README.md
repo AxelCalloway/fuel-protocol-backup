@@ -1,22 +1,35 @@
-# FUEL Protocol — Backup Site
+# FUEL & MORE Protocol — Backup Sites
 
-**Decentralized backup** of the official FUEL Protocol frontend.  
-This static site runs on both **IPFS** and **GitHub Pages**.
+**Decentralized backups** of the official FUEL Protocol and MORE Protocol frontends on **Robinhood Chain**.  
+These static sites run on both **IPFS** and **GitHub Pages**.
 
-Created by [Trevon James](https://x.com/TrVon) as part of the MORE / FUEL ecosystem on **Robinhood Chain**.
+Created by [Trevon James](https://x.com/TrVon) as part of the MORE / FUEL ecosystem.
 
 ---
 
 ## Live Links
 
-| Location          | URL |
-|-------------------|-----|
-| **IPFS**          | [https://bafybeigobv4743bxmcbwisf3be45owlmrmoobx3xjh5jw7tvu7bd4mhbey.ipfs.inbrowser.link/](https://bafybeigobv4743bxmcbwisf3be45owlmrmoobx3xjh5jw7tvu7bd4mhbey.ipfs.inbrowser.link/) |
-| **GitHub Pages**  | [https://axelcalloway.github.io/fuel-protocol-backup/](https://axelcalloway.github.io/fuel-protocol-backup/) |
-| **Original Site** | [https://app.fuelmoretokens.com/](https://app.fuelmoretokens.com/) |
-| **MORE Website**  | [https://app.moretokens.com/](https://app.moretokens.com/) |
+### FUEL Protocol Backup
 
-> This repository is an independent backup. Always prefer the official site when it is available.
+| Location | URL |
+|----------|-----|
+| **IPFS** | [https://bafybeicjapa4rdbgyyvhi5gx6mcge3vnpidvdvkx4cmjgpiijl44boeki4.ipfs.inbrowser.link/](https://bafybeicjapa4rdbgyyvhi5gx6mcge3vnpidvdvkx4cmjgpiijl44boeki4.ipfs.inbrowser.link/) |
+| **GitHub Pages** | [https://axelcalloway.github.io/fuel-protocol-backup/](https://axelcalloway.github.io/fuel-protocol-backup/) |
+| **Original Site** | [https://app.fuelmoretokens.com/](https://app.fuelmoretokens.com/) |
+
+**IPFS CID (FUEL):** `bafybeicjapa4rdbgyyvhi5gx6mcge3vnpidvdvkx4cmjgpiijl44boeki4`
+
+### MORE Protocol Backup
+
+| Location | URL |
+|----------|-----|
+| **IPFS** | [https://bafybeih67fiad25swwftx55bydrmsh3rpzzjniuor3tdlyinyzfpkbvrwy.ipfs.inbrowser.link/](https://bafybeih67fiad25swwftx55bydrmsh3rpzzjniuor3tdlyinyzfpkbvrwy.ipfs.inbrowser.link/) |
+| **GitHub Pages** | [https://axelcalloway.github.io/fuel-protocol-backup/more.html](https://axelcalloway.github.io/fuel-protocol-backup/more.html) |
+| **Original Site** | [https://app.moretokens.com/](https://app.moretokens.com/) |
+
+**IPFS CID (MORE):** `bafybeih67fiad25swwftx55bydrmsh3rpzzjniuor3tdlyinyzfpkbvrwy`
+
+> This repository is an independent backup. Always prefer the official sites when they are available.
 
 ---
 
@@ -30,10 +43,7 @@ Users can:
 - **Stake** $FUEL for APY
 - Interact with the **Mint Vault**, **Buy & Burn**, and **MORE Burner** fee pools
 
----
-
-## Features in this frontend
-
+### FUEL frontend features
 - Dashboard with live protocol stats
 - Mint (single or batch)
 - Claim solo rewards + batch proxy claims
@@ -42,6 +52,25 @@ Users can:
 - Vault sweep + Buy & Burn actions
 - Fully client-side (ethers.js v6)
 - Works with any injected wallet (MetaMask, Rabby, etc.)
+
+---
+
+## What is MORE Protocol?
+
+MORE is a penalty-based staking protocol on **Robinhood Chain**. There is **no fixed APR** — rewards come only from early/late exit penalties of other stakers, which are recycled 100% into the reward pool.
+
+Users can:
+- **Stake** $MORE for a chosen duration (1–5555 days)
+- **Unstake** (with early or late penalties when applicable)
+- View active positions, earned rewards, and protocol stats
+
+### MORE frontend features
+- Dashboard with total staked, active stakes, unique stakers, total distributed
+- Stake form (amount + duration)
+- Your Stakes list with per-position unstake
+- Penalty mechanics documented on-page
+- Fully client-side (ethers.js v6)
+- Works with any injected wallet
 
 ---
 
@@ -58,6 +87,8 @@ Users can:
 
 ## Contract Addresses
 
+### FUEL
+
 | Contract            | Address |
 |---------------------|---------|
 | **FUEL Token**      | `0xe60C1F5d9bA7f62a392a78472a3Ab83DD62467A3` |
@@ -68,9 +99,17 @@ Users can:
 | **Fee Distributor** | `0x2f69ff61802d9738e562e438d1f6326389d95861` |
 | **WETH**            | `0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73` |
 
-Donation address: `0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5`
+### MORE
 
-Full address list is also available in the [`contracts/`](./contracts/) and [`addresses/`](./addresses/) folders.
+| Contract            | Address |
+|---------------------|---------|
+| **MORE Token**      | `0xc0F1A40512114b25cc1F30b5DF0bb48691405555` |
+| **Staking**         | `0xCC22e7f65bEF29aa21f6F59b9363fdc26005dE31` |
+| **MORE Burner**     | `0x86f11A15E1793e7ce1F4264830d1973e80339A51` |
+
+Donation address (shared): `0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5`
+
+Full address lists are also available in the [`contracts/`](./contracts/) and [`addresses/`](./addresses/) folders.
 
 ---
 
@@ -79,12 +118,11 @@ Full address list is also available in the [`contracts/`](./contracts/) and [`ad
 1. Open the site (IPFS or GitHub Pages)
 2. Click **Connect Wallet**
 3. Switch to **Robinhood Chain** (4663) if prompted
-4. Use the sidebar to navigate:
-   - **Dashboard** → live stats
-   - **Mint** → open new ranks
-   - **Claim** → claim rewards / remint
-   - **Stake** → stake or withdraw $FUEL
-   - **Burns & Vault** → trigger buy-and-burn or vault sweep
+4. Navigate with the sidebar
+
+**FUEL pages:** Dashboard · Mint · Claim · Stake · Burns & Vault  
+
+**MORE pages:** Dashboard · Stake · Your Stakes · Burns  
 
 ---
 
@@ -93,7 +131,7 @@ Full address list is also available in the [`contracts/`](./contracts/) and [`ad
 - **Creator**: [Trevon James (@TrVon)](https://x.com/TrVon)
 - **Telegram**: [t.me/buymoretoken](https://t.me/buymoretoken)
 - **Original FUEL site**: [app.fuelmoretokens.com](https://app.fuelmoretokens.com/)
-- **MORE ecosystem**: [app.moretokens.com](https://app.moretokens.com/)
+- **Original MORE site**: [app.moretokens.com](https://app.moretokens.com/)
 
 ---
 
@@ -101,9 +139,12 @@ Full address list is also available in the [`contracts/`](./contracts/) and [`ad
 
 ```
 fuel-protocol-backup/
-├── index.html              # Full static frontend
-├── favicon.png
+├── index.html              # FUEL Protocol frontend
+├── more.html               # MORE Protocol frontend
+├── favicon.png             # FUEL favicon
+├── favicon_more.png        # MORE favicon
 ├── fuel_logo_200x200.png
+├── more_logo_200x200.png
 ├── contracts/              # Contract addresses
 ├── addresses/              # Additional address references
 └── README.md
@@ -111,22 +152,25 @@ fuel-protocol-backup/
 
 ---
 
-## Why this backup exists
+## Why these backups exist
 
-- The official site is the primary interface.
-- This repo keeps a permanent, censor-resistant copy on **IPFS** and a simple, always-available mirror on **GitHub Pages**.
-- Anyone can pin the IPFS CID or fork this repository.
+- The official sites are the primary interfaces.
+- This repo keeps permanent, censor-resistant copies on **IPFS** and simple, always-available mirrors on **GitHub Pages**.
+- Anyone can pin the IPFS CIDs or fork this repository.
 
-**IPFS CID**: `bafybeigobv4743bxmcbwisf3be45owlmrmoobx3xjh5jw7tvu7bd4mhbey`
+| Site | IPFS CID |
+|------|----------|
+| FUEL | `bafybeicjapa4rdbgyyvhi5gx6mcge3vnpidvdvkx4cmjgpiijl44boeki4` |
+| MORE | `bafybeih67fiad25swwftx55bydrmsh3rpzzjniuor3tdlyinyzfpkbvrwy` |
 
 ---
 
 ## Disclaimer
 
-This is an unofficial backup of a community protocol.  
+These are unofficial backups of community protocols.  
 Always double-check contract addresses and the official sources before sending transactions.  
 Interact at your own risk.
 
 ---
 
-**FUEL Protocol** · Robinhood Chain · Built by Trevon James
+**FUEL Protocol** · **MORE Protocol** · Robinhood Chain · Built by Trevon James
