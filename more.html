@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MORE Protocol · Staking</title>
+<link rel="icon" type="image/png" href="favicon_more.png" />
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --bg2: #111820;
+    --bg3: #161e2a;
+    --card: #141c27;
+    --border: #1e2a3a;
+    --border2: #2a3a50;
+    --text: #e8eef7;
+    --muted: #8b9bb4;
+    --dim: #5a6b84;
+    --accent: #3d8bfd;
+    --accent2: #1a5fd4;
+    --green: #2dd4a8;
+    --green-dim: rgba(45,212,168,0.12);
+    --red: #f07178;
+    --orange: #f0a060;
+    --purple: #a78bfa;
+    --radius: 12px;
+    --font: "Inter", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  :root { --sidebar-w: 248px; --topbar-h: 64px; }
+  .app {
+    display: grid;
+    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+    min-height: 100vh;
+  }
+  .content { min-width: 0; }
+
+  .sidebar {
+    position: sticky; top: 0; align-self: start;
+    height: 100vh; height: 100dvh;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    z-index: 120;
+  }
+  .sidebar-head {
+    height: var(--topbar-h); flex: none;
+    padding: 0 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; font-size: 18px; letter-spacing: -0.02em; white-space: nowrap;
+  }
+  /* MORE logos are full-bleed neon graffiti on pure black (1254²).
+     Show them as a tight rounded tile — no offset crop needed. */
+  .logo-img {
+    position: relative; display: block; flex: none;
+    width: 36px; height: 36px; border-radius: 9px; overflow: hidden;
+    background: #000; box-shadow: 0 0 0 1px var(--border2);
+  }
+  .logo-img img {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover; object-position: center;
+    max-width: none;
+  }
+  .nav {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 16px 12px; overflow-y: auto;
+  }
+  .nav button {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; text-align: left;
+    background: none; border: none; color: var(--muted);
+    padding: 10px 12px; border-radius: 10px; cursor: pointer;
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+  }
+  .nav button svg {
+    width: 18px; height: 18px; flex: none;
+    fill: none; stroke: currentColor; stroke-width: 1.8;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  .nav button:hover { color: var(--text); background: var(--bg3); }
+  .nav button.active { color: var(--text); background: var(--bg3); }
+  .nav button.active svg { color: var(--accent); }
+  .nav button:focus-visible,
+  .menu-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .nav-divider { height: 1px; background: var(--border); margin: 10px 4px 6px; }
+  .nav-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--dim); padding: 6px 12px 4px;
+  }
+  .nav a {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; color: var(--muted); text-decoration: none;
+    padding: 10px 12px; border-radius: 10px;
+    font-size: 14px; font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+  }
+  .nav a svg {
+    width: 18px; height: 18px; flex: none;
+    fill: none; stroke: currentColor; stroke-width: 1.8;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  .nav a .ext { width: 14px; height: 14px; margin-left: auto; opacity: 0.55; }
+  .nav a:hover { color: var(--text); background: var(--bg3); text-decoration: none; }
+  .nav a:hover .ext { opacity: 1; }
+
+  .net-banner {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 14px;
+    padding: 10px 24px; font-size: 13px; color: var(--orange);
+    background: rgba(240,160,96,0.10); border-bottom: 1px solid rgba(240,160,96,0.35);
+  }
+  .net-banner[hidden] { display: none; }
+
+  .site-footer {
+    max-width: 1280px; margin: 0 auto; padding: 0 24px 40px;
+  }
+  .footer-inner {
+    border-top: 1px solid var(--border); padding-top: 22px;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;
+    font-size: 13px; color: var(--muted);
+  }
+  .donate { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+  .donate-label { font-weight: 600; color: var(--text); }
+  .donate .mono { color: var(--accent); }
+  .addr-short { display: none; }
+  .footer-meta { display: flex; align-items: center; gap: 8px; color: var(--dim); }
+  .footer-meta a { color: var(--muted); font-weight: 600; }
+  .footer-meta a:hover { color: var(--accent); }
+  @media (max-width: 700px) {
+    .site-footer { padding-left: 16px; padding-right: 16px; }
+    .addr-full { display: none; }
+    .addr-short { display: inline; }
+    .footer-inner { flex-direction: column; align-items: flex-start; }
+  }
+  .copy-btn {
+    background: var(--bg3); border: 1px solid var(--border2); color: var(--text);
+    border-radius: 6px; padding: 3px 10px; font-size: 12px; font-family: inherit;
+    cursor: pointer; transition: border 0.15s;
+  }
+  .copy-btn:hover { border-color: var(--accent); }
+
+  .sidebar-backdrop { display: none; }
+  .menu-btn, .sidebar-close {
+    display: none; place-items: center;
+    width: 38px; height: 38px; flex: none;
+    background: none; border: 1px solid var(--border2); border-radius: 8px;
+    color: var(--text); cursor: pointer;
+  }
+  .menu-btn:hover, .sidebar-close:hover { border-color: var(--accent); }
+  .menu-btn svg, .sidebar-close svg {
+    width: 18px; height: 18px; fill: none; stroke: currentColor;
+    stroke-width: 2; stroke-linecap: round;
+  }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(11,15,20,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: var(--topbar-h);
+    display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+  }
+  .topbar-logo { display: none; margin-right: auto; }
+  .wallet-area { display: flex; align-items: center; gap: 10px; }
+  .chain-badge {
+    font-size: 12px; color: var(--green); background: var(--green-dim);
+    padding: 4px 10px; border-radius: 20px; font-weight: 600;
+  }
+  .btn {
+    border: none; border-radius: 8px; cursor: pointer;
+    font-weight: 600; font-size: 14px; padding: 10px 18px;
+    transition: all 0.15s; font-family: inherit;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-ghost {
+    background: var(--bg3); color: var(--text); border: 1px solid var(--border2);
+  }
+  .btn-ghost:hover { border-color: var(--accent); }
+  .btn-sm { padding: 6px 12px; font-size: 13px; }
+  .btn-block { width: 100%; }
+  .btn-green { background: var(--green); color: #0b0f14; }
+  .btn-green:hover { filter: brightness(1.1); }
+
+  .main { max-width: 1280px; margin: 0 auto; padding: 28px 24px 80px; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 6px; }
+  .subtitle { color: var(--muted); font-size: 15px; margin-bottom: 28px; }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .stat-label {
+    font-size: 12px; color: var(--muted); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;
+  }
+  .stat-value {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-value.sm { font-size: 16px; }
+  .stat-sub { font-size: 12px; color: var(--dim); margin-top: 4px; }
+
+  .grid-2 {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .grid-3 {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;
+  }
+  @media (max-width: 900px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .app { grid-template-columns: minmax(0, 1fr); }
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: 272px; max-width: 85vw;
+      transform: translateX(-100%);
+      transition: transform 0.22s ease;
+      box-shadow: none;
+    }
+    .sidebar.open { transform: translateX(0); box-shadow: 0 0 48px rgba(0,0,0,0.6); }
+    .sidebar-backdrop {
+      display: block; position: fixed; inset: 0; z-index: 110;
+      background: rgba(5,8,12,0.6);
+      opacity: 0; pointer-events: none; transition: opacity 0.22s ease;
+    }
+    .sidebar-backdrop.show { opacity: 1; pointer-events: auto; }
+    .menu-btn, .sidebar-close { display: grid; }
+    .topbar { height: auto; min-height: var(--topbar-h); padding: 8px 16px; }
+    .topbar-logo { display: flex; }
+    .wallet-area { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    .main { padding-left: 16px; padding-right: 16px; }
+  }
+  @media (max-width: 520px) {
+    .topbar-logo .logo-text { display: none; }
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 22px;
+  }
+  .card-title {
+    font-size: 15px; font-weight: 600; margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title .tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 4px;
+    background: var(--bg3); color: var(--muted); font-weight: 500;
+  }
+
+  label {
+    display: block; font-size: 13px; color: var(--muted);
+    margin-bottom: 6px; font-weight: 500;
+  }
+  .input-row {
+    display: flex; gap: 8px; margin-bottom: 14px;
+  }
+  input[type="number"], input[type="text"], select {
+    background: var(--bg); border: 1px solid var(--border2);
+    border-radius: 8px; color: var(--text); padding: 10px 14px;
+    font-size: 15px; font-family: inherit; width: 100%;
+    outline: none; transition: border 0.15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  .hint { font-size: 12px; color: var(--dim); margin-top: -8px; margin-bottom: 14px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th {
+    text-align: left; color: var(--muted); font-weight: 500;
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em;
+    padding: 8px 10px; border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 12px 10px; border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  tr:last-child td { border-bottom: none; }
+
+  .status-ok { color: var(--green); }
+  .status-wait { color: var(--orange); }
+  .status-err { color: var(--red); }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px; }
+
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 999;
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 10px; padding: 14px 20px; max-width: 420px;
+    font-size: 14px; display: none; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  #toast.show { display: block; animation: slideIn 0.25s ease; }
+  #toast.err { border-color: var(--red); }
+  #toast.ok { border-color: var(--green); }
+  @keyframes slideIn {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .section-gap { margin-top: 28px; }
+  .addr-link { color: var(--muted); font-size: 12px; }
+  .addr-link:hover { color: var(--accent); }
+
+  .empty { color: var(--dim); text-align: center; padding: 32px; font-size: 14px; }
+  .state-box {
+    text-align: center; padding: 28px 16px; font-size: 14px; color: var(--muted);
+    border-radius: 8px; background: var(--bg); border: 1px dashed var(--border);
+  }
+  .state-box.loading { color: var(--accent); border-color: rgba(61,139,253,0.35); }
+  .state-box.error {
+    color: #f07178; border-color: rgba(240,113,120,0.35);
+    background: rgba(240,113,120,0.12);
+  }
+  .spinner {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid var(--border2); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: -3px; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .flex-between { display: flex; justify-content: space-between; align-items: center; }
+  .mt-12 { margin-top: 12px; }
+  .mb-8 { margin-bottom: 8px; }
+  .info-box {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px; font-size: 13px; color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .info-box strong { color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-head">
+    <div class="logo">
+      <span class="logo-img"><img src="more_logo_200x200.png" alt="MORE" width="56" height="56" /></span>
+      MORE Protocol
+    </div>
+    <button class="sidebar-close" id="sidebarClose" aria-label="Close menu">
+      <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <nav class="nav" aria-label="Main">
+    <button class="active" data-page="dashboard" aria-current="page">
+      <svg viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button data-page="stake">
+      <svg viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>
+      Stake
+    </button>
+    <button data-page="positions">
+      <svg viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M9 14h6"/><path d="M9 18h6"/></svg>
+      Your Stakes
+    </button>
+    <button data-page="burns">
+      <svg viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+      Burns
+    </button>
+
+    <div class="nav-divider" role="separator"></div>
+    <div class="nav-label">External sites</div>
+    <a href="https://app.moretokens.com/" target="_blank" rel="noopener noreferrer">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Original MORE Site
+      <svg class="ext" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+    </a>
+    <a href="https://app.fuelmoretokens.com/" target="_blank" rel="noopener noreferrer">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      Original FUEL Site
+      <svg class="ext" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+    </a>
+    <a href="https://axelcalloway.github.io/fuel-protocol-backup/" target="_blank" rel="noopener noreferrer">
+      <svg viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>
+      FUEL Backup Site
+      <svg class="ext" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+    </a>
+
+    <div class="nav-label">Creator</div>
+    <a href="https://t.me/buymoretoken" target="_blank" rel="noopener noreferrer">
+      <svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+      Telegram
+      <svg class="ext" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+    </a>
+    <a href="https://x.com/TrVon" target="_blank" rel="noopener noreferrer">
+      <svg viewBox="0 0 24 24"><path d="M4 4l11.733 16h4.267l-11.733 -16z"/><path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772"/></svg>
+      X (Twitter)
+      <svg class="ext" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+    </a>
+  </nav>
+</aside>
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<div class="content">
+
+<header class="topbar">
+  <button class="menu-btn" id="menuBtn" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false">
+    <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <div class="logo topbar-logo">
+    <span class="logo-img"><img src="more_logo_200x200.png" alt="MORE" width="56" height="56" /></span>
+    <span class="logo-text">MORE Protocol</span>
+  </div>
+  <div class="wallet-area">
+    <span class="chain-badge" id="chainBadge">Robinhood · 4663</span>
+    <button class="btn btn-primary" id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+  </div>
+</header>
+
+<div class="net-banner" id="netBanner" role="alert" hidden>
+  <span>Your wallet is on a different network. Switch to Robinhood Chain (4663) to stake.</span>
+  <button type="button" class="btn btn-primary btn-sm" id="netSwitchBtn">Switch to Robinhood Chain</button>
+</div>
+
+<main class="main">
+
+<!-- ===================== DASHBOARD ===================== -->
+<section class="page active" id="page-dashboard">
+  <h1>MORE Overview</h1>
+  <p class="subtitle">Live staking stats on Robinhood Chain. Rewards come only from early/late exit penalties of other stakers.</p>
+
+  <div class="stats-grid" id="globalStats">
+    <div class="stat-card"><div class="stat-label">Total Staked</div><div class="stat-value sm" id="s-staked">—</div></div>
+    <div class="stat-card"><div class="stat-label">Active Stakes</div><div class="stat-value" id="s-activestakes">—</div></div>
+    <div class="stat-card"><div class="stat-label">Unique Stakers</div><div class="stat-value" id="s-stakers">—</div></div>
+    <div class="stat-card"><div class="stat-label">Total Distributed</div><div class="stat-value sm" id="s-distributed">—</div></div>
+    <div class="stat-card"><div class="stat-label">Reward / Token</div><div class="stat-value sm" id="s-rpt">—</div></div>
+    <div class="stat-card"><div class="stat-label">Your Balance</div><div class="stat-value sm" id="s-bal">—</div></div>
+    <div class="stat-card"><div class="stat-label">Your Staked</div><div class="stat-value sm" id="s-userstaked">—</div></div>
+  </div>
+
+  <div class="card section-gap">
+    <div class="card-title">How rewards work</div>
+    <div class="info-box">
+      There is <strong>no fixed APR</strong>. Rewards come entirely from penalties paid by people who unstake early or late.
+      Those penalties are folded back into the pool and split pro-rata across everyone currently staked.
+      Staking longer does not earn more by itself — it just keeps you in the pool while other people’s penalties land.
+      <br><br>
+      <strong>Grace period</strong> after unlock: 14 days before late penalties start.<br>
+      Early exit = bigger cut the less time served. Late exit also applies a growing penalty.
+    </div>
+  </div>
+
+  <div class="card section-gap">
+    <div class="card-title">Your Position</div>
+    <div id="userPosition" class="state-box">Connect wallet to see your MORE balance and stakes</div>
+  </div>
+</section>
+
+<!-- ===================== STAKE ===================== -->
+<section class="page" id="page-stake">
+  <h1>Stake MORE</h1>
+  <p class="subtitle">Lock MORE for a chosen duration. Unstaking early or too late applies a penalty that rewards remaining stakers.</p>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Create Stake</div>
+      <label>Amount (MORE)</label>
+      <div class="input-row">
+        <input type="number" id="stakeAmount" placeholder="0.0" step="any" />
+        <button class="btn btn-ghost btn-sm" onclick="setMaxStakeAmount()">MAX</button>
+      </div>
+      <p class="hint" id="stakeBalHint">Balance: —</p>
+
+      <label>Duration (days) <span style="color:var(--dim);font-weight:400">min 1 · max 5555</span></label>
+      <div class="input-row">
+        <input type="number" id="stakeDays" value="30" min="1" max="5555" />
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('stakeDays').value=5555">MAX</button>
+      </div>
+      <p class="hint" id="stakeUnlockHint">Unlocks —</p>
+
+      <button class="btn btn-primary btn-block mt-12" id="stakeBtn" onclick="doStake()" disabled>Stake MORE</button>
+      <p class="hint mt-12">First stake needs <strong>two wallet confirmations</strong>: 1) Approve MORE, 2) Stake. After that only one confirmation is needed.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">Stake Preview</div>
+      <table>
+        <tr><td>Amount</td><td id="previewAmount" class="mono">—</td></tr>
+        <tr><td>Term</td><td id="previewTerm" class="mono">—</td></tr>
+        <tr><td>Unlock date</td><td id="previewUnlock">—</td></tr>
+      </table>
+      <div class="info-box mt-12">
+        Unstaking before unlock applies an early penalty. Waiting more than 14 days after unlock starts a late penalty.
+        All penalties recycle into the reward pool for active stakers.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== YOUR STAKES ===================== -->
+<section class="page" id="page-positions">
+  <h1>Your Stakes</h1>
+  <p class="subtitle">View active positions, claim rewards, and unstake (with any applicable penalty).</p>
+
+  <div class="card">
+    <div class="card-title flex-between">
+      <span>Active Positions</span>
+      <button class="btn btn-ghost btn-sm" onclick="loadUser()">Refresh</button>
+    </div>
+    <div id="positionsList" class="state-box">Connect wallet to load your stakes</div>
+  </div>
+</section>
+
+<!-- ===================== BURNS ===================== -->
+<section class="page" id="page-burns">
+  <h1>Burns</h1>
+  <p class="subtitle">MORE buy-and-burn and related fee sinks on Robinhood Chain.</p>
+
+  <div class="card">
+    <div class="card-title">Contract Addresses</div>
+    <table class="mono" style="font-size:12px">
+      <tr><td>MORE Token</td><td><a class="addr-link" target="_blank" id="a-more" href="#">—</a></td></tr>
+      <tr><td>Staking Contract</td><td><a class="addr-link" target="_blank" id="a-stake" href="#">—</a></td></tr>
+      <tr><td>MORE Burner (from FUEL ecosystem)</td><td><a class="addr-link" target="_blank" id="a-burner" href="#">—</a></td></tr>
+    </table>
+  </div>
+
+  <div class="card section-gap">
+    <div class="card-title">Penalty mechanics (this contract)</div>
+    <div class="info-box">
+      <strong>Early exit:</strong> penalty = (principal + earned) × unservedDays / totalDuration.<br>
+      <strong>Late exit:</strong> after a 14-day grace period past unlock, penalty grows as (time past grace) / 700 days.<br>
+      <strong>100% of every penalty</strong> is recycled into the reward pool for remaining stakers — no split, no buy-and-burn routing on this Robinhood deployment.<br><br>
+      Min term 1 day · Max term 5555 days.
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="donate">
+      <span class="donate-label">Donations:</span>
+      <a class="mono" id="donateLink" href="https://robin.etherscan.io/address/0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5" target="_blank" rel="noopener noreferrer">
+        <span class="addr-full">0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5</span>
+        <span class="addr-short" aria-hidden="true">0x33cD…50e5</span>
+      </a>
+      <button type="button" class="copy-btn" id="copyDonate" data-addr="0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5">Copy</button>
+    </div>
+    <div class="footer-meta">
+      <span>&copy; <span id="footerYear">2026</span></span>
+      <span>·</span>
+      <span>Built for <a href="https://app.moretokens.com/" target="_blank" rel="noopener noreferrer">MORE</a> · <a href="https://app.fuelmoretokens.com/" target="_blank" rel="noopener noreferrer">FUEL</a></span>
+    </div>
+  </div>
+</footer>
+
+</div><!-- /.content -->
+</div><!-- /.app -->
+
+<div id="toast"></div>
+
+<script>
+/* ===================== CONFIG ===================== */
+const CHAIN_ID = 4663;
+const CHAIN_ID_HEX = "0x1237";
+const RPC_URLS = [
+  "https://rpc.mainnet.chain.robinhood.com",
+  "https://robinhood-rpc.publicnode.com",
+  "https://robinhood.drpc.org",
+];
+const EXPLORER = "https://robinhoodchain.blockscout.com";
+
+const ADDR = {
+  MORE: "0xc0F1A40512114b25cc1F30b5DF0bb48691405555",
+  STAKE: "0xCC22e7f65bEF29aa21f6F59b9363fdc26005dE31",
+  BURNER: "0x86f11A15E1793e7ce1F4264830d1973e80339A51", // from FUEL ecosystem
+  WETH: "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+};
+
+const ERC20_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function transfer(address to, uint256 amount) returns (bool)",
+];
+
+// Exact ABI from RobinhoodMoreStaking source
+const STAKE_ABI = [
+  "function MORE() view returns (address)",
+  "function totalStaked() view returns (uint256)",
+  "function totalDistributed() view returns (uint256)",
+  "function pendingToDistribute() view returns (uint256)",
+  "function rewardPerToken() view returns (uint256)",
+  "function stakeIDCounter() view returns (uint256)",
+  "function stakeCounter() view returns (uint256)",
+  "function stakers() view returns (uint256)",
+  "function activeStake(address) view returns (uint256)",
+  "function stakeInfo(uint256) view returns (address staker, uint256 amount, uint256 startTime, uint256 endTime, uint256 claimTime, uint256 duration, uint256 rewardPerToken, uint256 claimed, uint256 penalty, bool status)",
+  "function getStakerID(address staker) view returns (uint256[])",
+  "function getStakeCount(address staker) view returns (uint256)",
+  "function getStakeIdAt(address staker, uint256 index) view returns (uint256)",
+  "function getStakeInfo(uint256 stakeID) view returns (tuple(address staker, uint256 amount, uint256 startTime, uint256 endTime, uint256 claimTime, uint256 duration, uint256 rewardPerToken, uint256 claimed, uint256 penalty, bool status))",
+  "function stake(uint256 amount, uint256 stakeDays)",
+  "function unstake(uint256 stakeID)",
+  "function earned(uint256 stakeID) view returns (uint256)",
+  "function owner() view returns (address)",
+];
+
+/* ===================== STATE ===================== */
+let provider, signer, account;
+let moreToken, stakeContract;
+let readProvider;
+let rpcReady = false;
+let userLoading = false;
+let moreDecimals = 18;
+
+/* ===================== UTILS ===================== */
+const $ = (id) => document.getElementById(id);
+
+function fmt(n, d = 2) {
+  if (n == null) return "—";
+  const x = Number(n);
+  if (x >= 1e9) return (x / 1e9).toFixed(d) + "B";
+  if (x >= 1e6) return (x / 1e6).toFixed(d) + "M";
+  if (x >= 1e3) return (x / 1e3).toFixed(d) + "K";
+  return x.toLocaleString(undefined, { maximumFractionDigits: d });
+}
+
+/** Format token amount. fracDigits=0 → whole numbers (cleaner for large balances). */
+function fmtToken(wei, tokenDecimals = 18, fracDigits = 0) {
+  if (wei == null) return "—";
+  try {
+    const n = Number(ethers.formatUnits(wei, tokenDecimals));
+    if (fracDigits === 0) {
+      return Math.floor(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+    }
+    return n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: fracDigits });
+  } catch {
+    return "—";
+  }
+}
+
+function shortAddr(a) {
+  if (!a) return "—";
+  return a.slice(0, 6) + "…" + a.slice(-4);
+}
+
+function fmtDateTime(ts) {
+  if (!ts || ts < 1e9) return "—";
+  const d = new Date(Number(ts) * 1000);
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+function fmtRelative(ts) {
+  if (!ts || ts < 1e9) return "";
+  const now = Date.now() / 1000;
+  const diff = Number(ts) - now;
+  if (diff < 0) {
+    const ago = -diff;
+    if (ago < 3600) return Math.floor(ago / 60) + "m ago";
+    if (ago < 86400) return Math.floor(ago / 3600) + "h ago";
+    return Math.floor(ago / 86400) + "d ago";
+  }
+  if (diff < 3600) return "in " + Math.floor(diff / 60) + "m";
+  if (diff < 86400) return "in " + Math.floor(diff / 3600) + "h";
+  return "in " + Math.floor(diff / 86400) + "d";
+}
+
+function toast(msg, type = "") {
+  const el = $("toast");
+  el.textContent = msg;
+  el.className = "show " + type;
+  clearTimeout(window._toastT);
+  window._toastT = setTimeout(() => { el.className = ""; }, 4200);
+}
+
+function setState(el, kind, text) {
+  if (!el) return;
+  el.className = "state-box " + (kind || "");
+  el.innerHTML = kind === "loading" ? `<span class="spinner"></span>${text}` : text;
+}
+
+function setLinks() {
+  $("a-more").textContent = ADDR.MORE;
+  $("a-more").href = EXPLORER + "/address/" + ADDR.MORE;
+  $("a-stake").textContent = ADDR.STAKE;
+  $("a-stake").href = EXPLORER + "/address/" + ADDR.STAKE;
+  $("a-burner").textContent = ADDR.BURNER;
+  $("a-burner").href = EXPLORER + "/address/" + ADDR.BURNER;
+}
+
+/* ===================== RPC ===================== */
+async function initRead() {
+  let lastErr;
+  for (const url of RPC_URLS) {
+    try {
+      const p = new ethers.JsonRpcProvider(url, CHAIN_ID);
+      await p.getBlockNumber();
+      readProvider = p;
+      moreToken = new ethers.Contract(ADDR.MORE, ERC20_ABI, readProvider);
+      stakeContract = new ethers.Contract(ADDR.STAKE, STAKE_ABI, readProvider);
+      try {
+        moreDecimals = Number(await moreToken.decimals());
+      } catch { moreDecimals = 18; }
+      rpcReady = true;
+      return;
+    } catch (e) {
+      lastErr = e;
+      console.warn("RPC failed", url, e.message);
+    }
+  }
+  throw lastErr || new Error("All RPCs failed");
+}
+
+async function withReadFailover(fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    console.warn("read fail, rotating RPC", e.message);
+    await initRead();
+    return await fn();
+  }
+}
+
+async function switchToRobinhood() {
+  if (!window.ethereum) throw new Error("No wallet");
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: CHAIN_ID_HEX }],
+    });
+  } catch (e) {
+    if (e.code === 4902) {
+      await window.ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [{
+          chainId: CHAIN_ID_HEX,
+          chainName: "Robinhood Chain",
+          nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+          rpcUrls: RPC_URLS,
+          blockExplorerUrls: [EXPLORER],
+        }],
+      });
+    } else throw e;
+  }
+}
+
+async function checkWalletNetwork() {
+  if (!window.ethereum) return;
+  try {
+    const cid = await window.ethereum.request({ method: "eth_chainId" });
+    $("netBanner").hidden = parseInt(cid, 16) === CHAIN_ID;
+  } catch {}
+}
+
+async function autoReconnect() {
+  if (!window.ethereum) return;
+  try {
+    const accts = await window.ethereum.request({ method: "eth_accounts" });
+    if (!accts?.length) return;
+    const cid = await window.ethereum.request({ method: "eth_chainId" });
+    if (parseInt(cid, 16) !== CHAIN_ID) return;
+    await connectWallet(true);
+  } catch {}
+}
+
+async function connectWallet(silent = false) {
+  if (!window.ethereum) {
+    if (!silent) toast("No wallet found. Install MetaMask or similar.", "err");
+    return;
+  }
+  try {
+    $("connectBtn").disabled = true;
+    $("connectBtn").textContent = "Connecting…";
+    provider = new ethers.BrowserProvider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    let net = await provider.getNetwork();
+    if (Number(net.chainId) !== CHAIN_ID) {
+      await switchToRobinhood();
+      provider = new ethers.BrowserProvider(window.ethereum);
+      net = await provider.getNetwork();
+      if (Number(net.chainId) !== CHAIN_ID) {
+        throw new Error("Still on wrong network. Switch to Robinhood Chain (4663).");
+      }
+    }
+    signer = await provider.getSigner();
+    account = await signer.getAddress();
+    $("connectBtn").textContent = shortAddr(account);
+    $("connectBtn").disabled = false;
+    $("connectBtn").classList.remove("btn-primary");
+    $("connectBtn").classList.add("btn-ghost");
+
+    if (!rpcReady) await initRead();
+
+    moreToken = moreToken.connect(signer);
+    stakeContract = stakeContract.connect(signer);
+
+    $("stakeBtn").disabled = false;
+    if (!silent) toast("Connected " + shortAddr(account), "ok");
+    await loadUser();
+  } catch (e) {
+    console.error(e);
+    $("connectBtn").disabled = false;
+    $("connectBtn").textContent = "Connect Wallet";
+    if (!silent) toast(e.shortMessage || e.message || "Connect failed", "err");
+  }
+}
+
+/* ===================== LOAD DATA ===================== */
+async function loadGlobal() {
+  try {
+    const [staked, rpt, distributed, activeStakes, uniqueStakers] = await Promise.all([
+      stakeContract.totalStaked().catch(() => null),
+      stakeContract.rewardPerToken().catch(() => null),
+      stakeContract.totalDistributed().catch(() => null),
+      stakeContract.stakeCounter().catch(() => null),
+      stakeContract.stakers().catch(() => null),
+    ]);
+    $("s-staked").textContent = staked != null ? fmtToken(staked, moreDecimals, 0) + " MORE" : "—";
+    // rewardPerToken is a scaled index — show up to 2 decimals, hide trailing zeros noise
+    $("s-rpt").textContent = rpt != null
+      ? Number(ethers.formatUnits(rpt, 18)).toLocaleString(undefined, { maximumFractionDigits: 2 })
+      : "—";
+    if ($("s-distributed")) $("s-distributed").textContent = distributed != null ? fmtToken(distributed, moreDecimals, 0) + " MORE" : "—";
+    if ($("s-activestakes")) $("s-activestakes").textContent = activeStakes != null ? activeStakes.toString() : "—";
+    if ($("s-stakers")) $("s-stakers").textContent = uniqueStakers != null ? uniqueStakers.toString() : "—";
+  } catch (e) {
+    console.warn("loadGlobal", e);
+  }
+}
+
+async function loadUser(silent = false) {
+  if (!account) {
+    setState($("userPosition"), "empty", "Connect wallet to see your MORE balance and stakes");
+    setState($("positionsList"), "empty", "Connect wallet to load your stakes");
+    $("s-bal").textContent = "—";
+    $("s-userstaked").textContent = "—";
+    $("stakeBalHint").textContent = "Balance: —";
+    return;
+  }
+  if (!rpcReady) {
+    setState($("userPosition"), "error", "RPC not connected");
+    return;
+  }
+  if (userLoading) return;
+  userLoading = true;
+  if (!silent) {
+    setState($("userPosition"), "loading", "Loading…");
+    setState($("positionsList"), "loading", "Loading stakes…");
+  }
+
+  try {
+    const bal = await moreToken.balanceOf(account);
+    window._moreBalance = bal;
+    $("s-bal").textContent = fmtToken(bal, moreDecimals) + " MORE";
+    $("stakeBalHint").textContent = "Balance: " + fmtToken(bal, moreDecimals) + " MORE";
+
+    let userStaked = 0n;
+    let pendingRewards = 0n;
+    let stakesHtml = "";
+
+    // Exact contract API: getStakerID → array of stake IDs, then getStakeInfo / earned
+    const stakeIds = await stakeContract.getStakerID(account).catch(() => []);
+    const activeIds = [];
+
+    if (stakeIds && stakeIds.length > 0) {
+      const rows = [];
+      for (const id of stakeIds) {
+        try {
+          const info = await stakeContract.getStakeInfo(id);
+          // tuple: staker, amount, startTime, endTime, claimTime, duration, rewardPerToken, claimed, penalty, status
+          const amount = info.amount ?? info[1];
+          const startTime = info.startTime ?? info[2];
+          const endTime = info.endTime ?? info[3];
+          const status = info.status ?? info[9];
+          if (!status) continue; // already unstaked
+
+          activeIds.push(id);
+          userStaked += BigInt(amount);
+
+          let earnedAmt = 0n;
+          try {
+            earnedAmt = await stakeContract.earned(id);
+            pendingRewards += BigInt(earnedAmt);
+          } catch {}
+
+          const now = Math.floor(Date.now() / 1000);
+          const unlocked = now >= Number(endTime);
+          const graceEnd = Number(endTime) + 14 * 86400;
+          let statusLabel;
+          if (!unlocked) {
+            statusLabel = `<span class="status-wait">${fmtRelative(endTime)}</span>`;
+          } else if (now <= graceEnd) {
+            statusLabel = `<span class="status-ok">Unlocked (grace)</span>`;
+          } else {
+            statusLabel = `<span class="status-wait">Late penalty zone</span>`;
+          }
+
+          const days = Math.round(Number(info.duration ?? info[5]) / 86400);
+          rows.push(`<tr>
+            <td class="mono">#${id}</td>
+            <td class="mono">${fmtToken(amount, moreDecimals, 0)}</td>
+            <td>${days}d</td>
+            <td class="mono" style="font-size:12px">${fmtDateTime(endTime)}</td>
+            <td class="mono">${fmtToken(earnedAmt, moreDecimals, 2)}</td>
+            <td>${statusLabel}</td>
+            <td><button class="btn btn-sm btn-primary" onclick="doUnstake(${id})">Unstake</button></td>
+          </tr>`);
+        } catch (e) {
+          console.warn("stake info", id, e);
+        }
+      }
+
+      if (rows.length > 0) {
+        stakesHtml = `<table>
+          <tr><th>ID</th><th>Amount</th><th>Term</th><th>Unlock</th><th>Earned</th><th>Status</th><th></th></tr>
+          ${rows.join("")}
+        </table>
+        <p class="hint mt-12">Unstake returns principal + earned rewards minus any early/late penalty. 100% of the penalty goes back into the reward pool for remaining stakers.</p>`;
+      } else {
+        stakesHtml = `<div class="empty">No active stakes (all previous stakes have been exited).</div>`;
+      }
+    } else {
+      stakesHtml = `<div class="empty">No stakes found for this wallet on Robinhood.</div>`;
+    }
+
+    $("s-userstaked").textContent = fmtToken(userStaked, moreDecimals, 0) + " MORE";
+
+    $("userPosition").className = "";
+    $("userPosition").innerHTML = `<table>
+      <tr><td>Wallet</td><td class="mono">${shortAddr(account)}</td></tr>
+      <tr><td>MORE Balance</td><td class="mono">${fmtToken(bal, moreDecimals, 0)}</td></tr>
+      <tr><td>Active Stakes</td><td class="mono">${activeIds.length}</td></tr>
+      <tr><td>Total Staked</td><td class="mono">${fmtToken(userStaked, moreDecimals, 0)}</td></tr>
+      <tr><td>Pending Rewards</td><td class="mono">${fmtToken(pendingRewards, moreDecimals, 2)}</td></tr>
+    </table>`;
+
+    $("positionsList").className = "";
+    $("positionsList").innerHTML = stakesHtml;
+  } catch (e) {
+    console.error("loadUser", e);
+    if (!silent) {
+      setState($("userPosition"), "error", "Failed to load: " + (e.shortMessage || e.message));
+      setState($("positionsList"), "error", "Failed to load stakes");
+    }
+  } finally {
+    userLoading = false;
+  }
+}
+
+function updateStakePreview() {
+  const amt = $("stakeAmount").value || "0";
+  const days = Number($("stakeDays").value) || 0;
+  $("previewAmount").textContent = amt + " MORE";
+  $("previewTerm").textContent = days + " days";
+  if (days > 0) {
+    const unlock = Date.now() / 1000 + days * 86400;
+    $("previewUnlock").textContent = fmtDateTime(unlock) + " (" + fmtRelative(unlock) + ")";
+    $("stakeUnlockHint").textContent = "Unlocks " + fmtDateTime(unlock) + " (" + fmtRelative(unlock) + ")";
+  } else {
+    $("previewUnlock").textContent = "—";
+    $("stakeUnlockHint").textContent = "Unlocks —";
+  }
+}
+
+function setMaxStakeAmount() {
+  const bal = window._moreBalance;
+  if (bal == null) return toast("Connect wallet first", "err");
+  $("stakeAmount").value = ethers.formatUnits(bal, moreDecimals);
+  updateStakePreview();
+}
+
+/* ===================== ACTIONS ===================== */
+async function withTx(fn, label) {
+  try {
+    toast(label + "…");
+    const tx = await fn();
+    toast("Submitted " + shortAddr(tx.hash));
+    const rc = await tx.wait();
+    if (rc.status !== 1) throw new Error("Tx reverted");
+    toast(label + " confirmed", "ok");
+    await loadGlobal();
+    await loadUser();
+  } catch (e) {
+    console.error(e);
+    toast((e.reason || e.shortMessage || e.message || String(e)).slice(0, 180), "err");
+  }
+}
+
+async function doStake() {
+  const amountStr = $("stakeAmount").value || "0";
+  const days = Number($("stakeDays").value);
+  if (!amountStr || Number(amountStr) <= 0) return toast("Enter amount", "err");
+  if (days < 1 || days > 5555) return toast("Duration must be 1–5555 days", "err");
+  if (!account) return toast("Connect wallet first", "err");
+
+  const amount = ethers.parseUnits(amountStr, moreDecimals);
+  const btn = $("stakeBtn");
+  btn.disabled = true;
+  const originalLabel = btn.textContent;
+
+  try {
+    // Check if approval is needed
+    const allowance = await moreToken.allowance(account, ADDR.STAKE);
+    const needsApprove = allowance < amount;
+
+    if (needsApprove) {
+      // Tell the user up front that two wallet confirmations are required
+      toast("Step 1 of 2: Approve MORE in your wallet…");
+      btn.textContent = "Approving…";
+      try {
+        const tx = await moreToken.approve(ADDR.STAKE, ethers.MaxUint256);
+        toast("Approve submitted — waiting for confirmation…");
+        const rc = await tx.wait();
+        if (rc.status !== 1) throw new Error("Approve tx reverted");
+        toast("Approved ✓ — Step 2 of 2: confirm Stake in your wallet", "ok");
+      } catch (e) {
+        toast("Approve failed: " + (e.shortMessage || e.message || e), "err");
+        return;
+      }
+    } else {
+      toast("Confirm Stake in your wallet…");
+    }
+
+    // Stake transaction
+    btn.textContent = "Staking…";
+    try {
+      const tx = await stakeContract.stake(amount, days);
+      toast("Stake submitted — waiting for confirmation…");
+      const rc = await tx.wait();
+      if (rc.status !== 1) throw new Error("Stake tx reverted");
+      toast(`Staked ${amountStr} MORE for ${days} days ✓`, "ok");
+      // Clear form + hard-refresh data so the new position shows immediately
+      $("stakeAmount").value = "";
+      updateStakePreview();
+      await loadGlobal();
+      await loadUser();
+    } catch (e) {
+      toast("Stake failed: " + (e.shortMessage || e.message || e), "err");
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+async function doUnstake(stakeID) {
+  await withTx(() => stakeContract.unstake(stakeID), `Unstake #${stakeID}`);
+}
+
+/* ===================== UI WIRING ===================== */
+function showPage(name) {
+  const btn = document.querySelector(`.nav button[data-page="${name}"]`);
+  const page = $("page-" + name);
+  if (!btn || !page) return false;
+  document.querySelectorAll(".nav button").forEach(b => {
+    b.classList.remove("active");
+    b.removeAttribute("aria-current");
+  });
+  btn.classList.add("active");
+  btn.setAttribute("aria-current", "page");
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  page.classList.add("active");
+  return true;
+}
+
+document.querySelectorAll(".nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const name = btn.dataset.page;
+    showPage(name);
+    if (location.hash.slice(1) !== name) history.pushState(null, "", "#" + name);
+    window.scrollTo(0, 0);
+    setSidebar(false);
+  });
+});
+
+window.addEventListener("popstate", () => { showPage(location.hash.slice(1) || "dashboard"); });
+if (!showPage(location.hash.slice(1))) showPage("dashboard");
+
+function setSidebar(open) {
+  $("sidebar").classList.toggle("open", open);
+  $("sidebarBackdrop").classList.toggle("show", open);
+  $("menuBtn").setAttribute("aria-expanded", String(open));
+}
+$("menuBtn").addEventListener("click", () => setSidebar(true));
+$("sidebarClose").addEventListener("click", () => setSidebar(false));
+$("sidebarBackdrop").addEventListener("click", () => setSidebar(false));
+window.matchMedia("(min-width: 901px)").addEventListener("change", (e) => { if (e.matches) setSidebar(false); });
+
+(function () {
+  const START = 2026;
+  const now = new Date().getFullYear();
+  $("footerYear").textContent = now > START ? START + "–" + now : String(START);
+})();
+
+$("copyDonate").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText($("copyDonate").dataset.addr);
+    toast("Donation address copied", "ok");
+  } catch {
+    toast("Could not copy", "err");
+  }
+});
+
+["stakeAmount", "stakeDays"].forEach(id => {
+  $(id)?.addEventListener("input", updateStakePreview);
+});
+updateStakePreview();
+
+if (window.ethereum) {
+  window.ethereum.on("accountsChanged", () => location.reload());
+  window.ethereum.on("chainChanged", () => location.reload());
+}
+
+checkWalletNetwork();
+$("netSwitchBtn").addEventListener("click", async () => {
+  const btn = $("netSwitchBtn");
+  btn.disabled = true;
+  btn.textContent = "Switching…";
+  try {
+    await switchToRobinhood();
+    location.reload();
+  } catch (e) {
+    toast(e.shortMessage || e.message || "Switch failed", "err");
+    btn.disabled = false;
+    btn.textContent = "Switch to Robinhood Chain";
+  }
+});
+
+setLinks();
+initRead()
+  .then(() => { autoReconnect(); return loadGlobal(); })
+  .catch((e) => {
+    console.error(e);
+    toast("RPC error: " + (e.message || e), "err");
+  });
+
+setInterval(() => {
+  loadGlobal().catch(() => {});
+  if (account) loadUser(true).catch(() => {});
+}, 45000);
+</script>
+</body>
+</html>
