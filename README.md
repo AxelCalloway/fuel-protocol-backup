@@ -13,7 +13,7 @@ Created by [Trevon James](https://x.com/TrVon) as part of the MORE / FUEL ecosys
 
 | Location | URL |
 |----------|-----|
-| **IPFS** | [https://bafybeicjapa4rdbgyyvhi5gx6mcge3vnpidvdvkx4cmjgpiijl44boeki4.ipfs.inbrowser.link/](https://bafybeicjapa4rdbgyyvhi5gx6mcge3vnpidvdvkx4cmjgpiijl44boeki4.ipfs.inbrowser.link/) |
+| **IPFS** | [https://bafybeienye5rr6kdembxqirreosridy5rm2ywpfqlhgxrzhfolekpnxwbi.ipfs.inbrowser.link/](https://bafybeienye5rr6kdembxqirreosridy5rm2ywpfqlhgxrzhfolekpnxwbi.ipfs.inbrowser.link/) |
 | **GitHub Pages** | [https://axelcalloway.github.io/fuel-protocol-backup/](https://axelcalloway.github.io/fuel-protocol-backup/) |
 | **Original Site** | [https://app.fuelmoretokens.com/](https://app.fuelmoretokens.com/) |
 
@@ -160,7 +160,7 @@ fuel-protocol-backup/
 
 | Site | IPFS CID |
 |------|----------|
-| FUEL | `bafybeicjapa4rdbgyyvhi5gx6mcge3vnpidvdvkx4cmjgpiijl44boeki4` |
+| FUEL | `bafybeienye5rr6kdembxqirreosridy5rm2ywpfqlhgxrzhfolekpnxwbi` |
 | MORE | `bafybeih67fiad25swwftx55bydrmsh3rpzzjniuor3tdlyinyzfpkbvrwy` |
 
 ---
