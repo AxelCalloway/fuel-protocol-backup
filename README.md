@@ -17,7 +17,7 @@ Created by [Trevon James](https://x.com/TrVon) as part of the MORE / FUEL ecosys
 | **GitHub Pages** | [https://axelcalloway.github.io/fuel-protocol-backup/](https://axelcalloway.github.io/fuel-protocol-backup/) |
 | **Original Site** | [https://app.fuelmoretokens.com/](https://app.fuelmoretokens.com/) |
 
-**IPFS CID (FUEL):** `bafybeicjapa4rdbgyyvhi5gx6mcge3vnpidvdvkx4cmjgpiijl44boeki4`
+**IPFS CID (FUEL):** `bafybeienye5rr6kdembxqirreosridy5rm2ywpfqlhgxrzhfolekpnxwbi`
 
 ### MORE Protocol Backup
 
@@ -40,7 +40,7 @@ FUEL is a minting, claiming, staking and burn protocol on **Robinhood Chain** (C
 Users can:
 - **Mint** ranks (solo or in batches of up to 100)
 - **Claim** matured mint rewards
-- **Stake** $FUEL for APY
+- **Stake** $FUEL for APY — either a single native stake, or **unlimited concurrent stakes via multi-stake NFTs** (each stake mints a tradeable FSTAKE NFT, so there's no cap on how many open positions a wallet can hold)
 - Interact with the **Mint Vault**, **Buy & Burn**, and **MORE Burner** fee pools
 
 ### FUEL frontend features
@@ -48,7 +48,8 @@ Users can:
 - Mint (single or batch)
 - Claim solo rewards + batch proxy claims
 - Claim & Share / Claim & Stake
-- Stake / Withdraw
+- Native Stake / Withdraw
+- **Multi-stake via NFTs** — create as many simultaneous stakes as you want, each represented by its own FSTAKE NFT, with a per-wallet position list and one-click unstake per NFT
 - Vault sweep + Buy & Burn actions
 - Fully client-side (ethers.js v6)
 - Works with any injected wallet (MetaMask, Rabby, etc.)
@@ -89,15 +90,16 @@ Users can:
 
 ### FUEL
 
-| Contract            | Address |
-|---------------------|---------|
-| **FUEL Token**      | `0xe60C1F5d9bA7f62a392a78472a3Ab83DD62467A3` |
-| **BatchMinter**     | `0xEaB771dB3883dC05DbEA1915F7e81910869bbc18` |
-| **Mint Vault**      | `0x492d111487f097759340dc119DE5887d58c38bB0` |
-| **Buy & Burn**      | `0x1f8e137117f78ef1ea84235f3e5423c46bf2d4a2` |
-| **MORE Burner**     | `0x86f11A15E1793e7ce1F4264830d1973e80339A51` |
-| **Fee Distributor** | `0x2f69ff61802d9738e562e438d1f6326389d95861` |
-| **WETH**            | `0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73` |
+| Contract              | Address |
+|------------------------|---------|
+| **FUEL Token**         | `0xe60C1F5d9bA7f62a392a78472a3Ab83DD62467A3` |
+| **BatchMinter**        | `0xEaB771dB3883dC05DbEA1915F7e81910869bbc18` |
+| **Mint Vault**         | `0x492d111487f097759340dc119DE5887d58c38bB0` |
+| **Buy & Burn**         | `0x1f8e137117f78ef1ea84235f3e5423c46bf2d4a2` |
+| **MORE Burner**        | `0x86f11A15E1793e7ce1F4264830d1973e80339A51` |
+| **Fee Distributor**    | `0x2f69ff61802d9738e562e438d1f6326389d95861` |
+| **WETH**               | `0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73` |
+| **FStake**    | `0x6060acC907dE482a42fFA5AED51c72021e7579e1` |
 
 ### MORE
 
@@ -120,7 +122,7 @@ Full address lists are also available in the [`contracts/`](./contracts/) and [`
 3. Switch to **Robinhood Chain** (4663) if prompted
 4. Navigate with the sidebar
 
-**FUEL pages:** Dashboard · Mint · Claim · Stake · Burns & Vault  
+**FUEL pages:** Dashboard · Mint · Claim · Stake (native + unlimited multi-stake NFTs) · Burns & Vault  
 
 **MORE pages:** Dashboard · Stake · Your Stakes · Burns  
 
@@ -141,12 +143,12 @@ Full address lists are also available in the [`contracts/`](./contracts/) and [`
 fuel-protocol-backup/
 ├── index.html              # FUEL Protocol frontend
 ├── more.html               # MORE Protocol frontend
-├── favicon.png             # FUEL favicon
-├── favicon_more.png        # MORE favicon
+├── favicon.png              # FUEL favicon
+├── favicon_more.png         # MORE favicon
 ├── fuel_logo_200x200.png
 ├── more_logo_200x200.png
-├── contracts/              # Contract addresses
-├── addresses/              # Additional address references
+├── contracts/               # Contract addresses
+├── addresses/                # Additional address references
 └── README.md
 ```
 
