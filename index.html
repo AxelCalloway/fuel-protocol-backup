@@ -3,9 +3,34 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="dark" />
+<meta name="description" content="FUEL Protocol on Robinhood Chain — mint, claim, stake FUEL, and run permissionless burn & vault keepers." />
+<meta property="og:title" content="FUEL Protocol" />
+<meta property="og:description" content="Mint, claim, and stake FUEL on Robinhood Chain (4663). Live vault, burn engines, and multi-stake NFTs." />
+<meta property="og:type" content="website" />
+<meta property="og:image" content="fuel_logo_200x200.png" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="FUEL Protocol" />
+<meta name="twitter:description" content="Mint, claim, and stake FUEL on Robinhood Chain (4663)." />
+<meta name="twitter:image" content="fuel_logo_200x200.png" />
 <title>FUEL Protocol</title>
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src https://fonts.gstatic.com;
+  img-src 'self' data:;
+  connect-src 'self' https://rpc.mainnet.chain.robinhood.com https://robinhood-rpc.publicnode.com https://robinhood.drpc.org;
+  frame-src 'none';
+  frame-ancestors 'none';
+  object-src 'none';
+  base-uri 'self';
+  form-action 'self';
+" />
 <link rel="icon" type="image/png" href="favicon.png" />
-<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
   :root {
     --bg: #0b0f14;
@@ -16,7 +41,7 @@
     --border2: #2a3a50;
     --text: #e8eef7;
     --muted: #8b9bb4;
-    --dim: #5a6b84;
+    --dim: #7688a3;
     --accent: #3d8bfd;
     --accent2: #1a5fd4;
     --green: #2dd4a8;
@@ -27,6 +52,9 @@
     --radius: 12px;
     --font: "Inter", system-ui, -apple-system, sans-serif;
   }
+  /* Primary button: darker blue for ~5.8:1 contrast with white text */
+  .btn-primary { background: var(--accent2) !important; color: #fff !important; }
+  .btn-primary:hover { background: #1549b0 !important; filter: none; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: var(--font);
@@ -130,6 +158,12 @@
   #page-stake .card { display: flex; flex-direction: column; }
   #page-stake .card > .btn-block { margin-top: auto; }
   #page-stake #userStakeInfo { margin-bottom: 12px; }
+  /* Multi-stake NFT list: hard cap so the card doesn't grow with every position */
+  #nftStakeList .scroll-table {
+    max-height: 280px;
+    overflow-y: auto;
+    overflow-x: auto;
+  }
 
   /* Wrong-network banner */
   .net-banner {
@@ -439,6 +473,15 @@
   .flex-between { display: flex; justify-content: space-between; align-items: center; }
   .mt-12 { margin-top: 12px; }
   .mb-8 { margin-bottom: 8px; }
+
+  /* Inert closed drawer for keyboard (mobile) */
+  @media (max-width: 900px) {
+    .sidebar:not(.open) { visibility: hidden; pointer-events: none; }
+    .sidebar.open { visibility: visible; pointer-events: auto; }
+  }
+  #toast.pending { border-color: var(--accent); }
+  .tx-link { color: var(--accent); font-weight: 600; }
+  details.card summary::-webkit-details-marker { color: var(--muted); }
 </style>
 </head>
 <body>
@@ -540,6 +583,16 @@
 <section class="page active" id="page-dashboard">
   <h1>Fuel Overview</h1>
   <p class="subtitle">Live stats from FUEL, vault, and burn engines on Robinhood Chain</p>
+  <details class="card" style="margin-bottom:20px;padding:14px 18px">
+    <summary style="cursor:pointer;font-weight:600;font-size:14px">Glossary &amp; risks</summary>
+    <div style="margin-top:12px;font-size:13px;color:var(--muted);line-height:1.55">
+      <p><strong style="color:var(--text)">Rank</strong> — global mint counter; earlier ranks earn more when claimed later.</p>
+      <p><strong style="color:var(--text)">Amplifier (AMP)</strong> — reward multiplier locked at mint time; declines as the protocol ages.</p>
+      <p><strong style="color:var(--text)">EAA</strong> — Early Adopter Amplification rate locked at mint; boosts early minters.</p>
+      <p><strong style="color:var(--text)">Term</strong> — days until maturity. Claiming within ~1 day of unlock is penalty-free; waiting longer applies a growing penalty.</p>
+      <p style="margin-top:10px"><strong style="color:var(--orange)">Risk note:</strong> Smart contracts, RPC endpoints, and markets can fail. Fees and rewards are on-chain and can change. Only use funds you can afford to lock or lose. This UI is not financial advice.</p>
+    </div>
+  </details>
 
   <div class="stats-grid" id="globalStats">
     <div class="stat-card"><div class="stat-label">Global Rank</div><div class="stat-value" id="s-rank">—</div></div>
@@ -595,13 +648,13 @@
     <div class="card">
       <div class="card-title">New Mint <span class="tag" id="mintModeTag">Token.claimRank</span></div>
 
-      <label>Number of mints <span id="mintCountRange" style="color:var(--dim);font-weight:400">min 1 · max 100 per batch</span></label>
+      <label for="mintCount">Number of mints <span id="mintCountRange" style="color:var(--dim);font-weight:400">min 1 · max 100 per batch</span></label>
       <div class="input-row">
         <input type="number" id="mintCount" value="1" min="1" max="100" />
         <button class="btn btn-ghost btn-sm" onclick="setMaxCount()">MAX</button>
       </div>
 
-      <label>Duration (days) <span id="mintTermRange" style="color:var(--dim);font-weight:400">min 7 · max loading…</span></label>
+      <label for="mintTerm">Duration (days) <span id="mintTermRange" style="color:var(--dim);font-weight:400">min 7 · max loading…</span></label>
       <div class="input-row">
         <input type="number" id="mintTerm" value="7" min="7" max="1000" />
         <button class="btn btn-ghost btn-sm" onclick="setMaxTerm()">MAX</button>
@@ -622,7 +675,9 @@
         <tr><td>Amplifier (locked)</td><td id="previewAmp">—</td></tr>
         <tr><td>EAA Rate (locked)</td><td id="previewEaa">—</td></tr>
         <tr><td>Unlock date</td><td id="previewMat">—</td></tr>
+        <tr><td>Est. reward (if rank pace holds)</td><td id="previewReward" class="mono">—</td></tr>
       </table>
+      <p class="hint mt-12" id="previewRewardHint">Projection uses session rank samples when available; otherwise rank delta is assumed from current global rank only at maturity (conservative lower bound needs live rank growth).</p>
     </div>
   </div>
 </section>
@@ -639,21 +694,21 @@
       <button class="btn btn-ghost btn-block mt-12" id="claimBtn" onclick="doClaimReward()" disabled>Claim Solo Reward</button>
       <hr style="border:none;border-top:1px solid var(--border);margin:18px 0" />
       <div class="card-title">Claim & Share / Stake (solo only)</div>
-      <div class="tabs">
-        <button class="active" data-tab="share">Share</button>
-        <button data-tab="stakeClaim">Stake %</button>
+      <div class="tabs" role="tablist">
+        <button class="active" role="tab" aria-selected="true" data-tab="share" id="tabBtnShare">Share</button>
+        <button role="tab" aria-selected="false" data-tab="stakeClaim" id="tabBtnStake">Stake %</button>
       </div>
-      <div id="tab-share">
-        <label>Share to address</label>
+      <div id="tab-share" role="tabpanel" aria-labelledby="tabBtnShare">
+        <label for="shareAddr">Share to address</label>
         <input type="text" id="shareAddr" placeholder="0x…" />
-        <label class="mt-12">Percent to share (1–100)</label>
+        <label class="mt-12" for="sharePct">Percent to share (1–100)</label>
         <input type="number" id="sharePct" value="50" min="1" max="100" />
         <button class="btn btn-ghost btn-block mt-12" id="shareBtn" onclick="doClaimShare()" disabled>Claim & Share</button>
       </div>
-      <div id="tab-stakeClaim" style="display:none">
-        <label>Percent to stake (0–100)</label>
+      <div id="tab-stakeClaim" role="tabpanel" aria-labelledby="tabBtnStake" style="display:none">
+        <label for="stakePct">Percent to stake (0–100)</label>
         <input type="number" id="stakePct" value="50" min="0" max="100" />
-        <label class="mt-12">Stake term (days)</label>
+        <label class="mt-12" for="stakeTerm">Stake term (days)</label>
         <input type="number" id="stakeTerm" value="30" min="7" max="1000" />
         <button class="btn btn-ghost btn-block mt-12" id="stakeClaimBtn" onclick="doClaimStake()" disabled>Claim & Stake</button>
       </div>
@@ -671,11 +726,11 @@
 
 <!-- Claim + Remint confirm modal: opened from a row's Remint ♻ button, which already
      carries its start index + count, so the only thing left to ask for is the term. -->
-<div id="remintModal" class="modal-overlay" style="display:none">
+<div id="remintModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="remintModalTitle">
   <div class="modal-box">
-    <div class="modal-title">Claim + Remint ♻ <span class="tag">BatchMinter.batchClaimAndRemint</span></div>
+    <div class="modal-title" id="remintModalTitle">Claim + Remint ♻ <span class="tag">BatchMinter.batchClaimAndRemint</span></div>
     <p class="hint" id="remintModalSub">—</p>
-    <label>New term (days)</label>
+    <label for="remintModalTerm">New term (days)</label>
     <input type="number" id="remintModalTerm" value="7" min="7" max="1000" />
     <p class="hint mt-12" id="remintModalFee">Fee: —</p>
     <div style="display:flex; gap:8px; margin-top:16px;">
@@ -688,18 +743,18 @@
 <!-- ===================== STAKE ===================== -->
 <section class="page" id="page-stake">
   <h1>Stake FUEL</h1>
-  <p class="subtitle">Lock FUEL for yield. Current APY declines over time from 20%.</p>
+  <p class="subtitle">Lock FUEL for yield. Use the native wallet stake (one active position) or multi-stake NFTs (unlimited positions, each minting a FSTAKE NFT).</p>
 
   <div class="grid-2">
     <div class="card">
-      <div class="card-title">Create Stake</div>
-      <label>Amount (FUEL)</label>
+      <div class="card-title">Native Stake <span class="tag">Token.stake · one per wallet</span></div>
+      <label for="stakeAmount">Amount (FUEL)</label>
       <div class="input-row">
         <input type="number" id="stakeAmount" placeholder="0.0" step="any" />
         <button class="btn btn-ghost btn-sm" onclick="setMaxStakeAmount()">MAX</button>
       </div>
       <p class="hint" id="stakeBalHint">Balance: —</p>
-      <label>Term (days) <span id="stakeTermRange" style="color:var(--dim);font-weight:400">min 7 · max 1000</span></label>
+      <label for="stakeDays">Term (days) <span id="stakeTermRange" style="color:var(--dim);font-weight:400">min 7 · max 1000</span></label>
       <div class="input-row">
         <input type="number" id="stakeDays" value="90" min="7" max="1000" />
         <button class="btn btn-ghost btn-sm" onclick="setMaxStakeTerm()">MAX</button>
@@ -708,9 +763,36 @@
       <button class="btn btn-primary btn-block mt-12" id="stakeBtn" onclick="doStake()" disabled>Stake</button>
     </div>
     <div class="card">
-      <div class="card-title">Your Stake</div>
+      <div class="card-title">Your Native Stake</div>
       <div id="userStakeInfo" class="state-box">Connect wallet…</div>
       <button class="btn btn-green btn-block mt-12" id="withdrawBtn" onclick="doWithdraw()" disabled>Withdraw</button>
+    </div>
+  </div>
+
+  <div class="grid-2 section-gap">
+    <div class="card">
+      <div class="card-title">Multi-Stake (NFT) <span class="tag">FUEL Stake · many positions</span></div>
+      <p class="hint mb-8">Each stake mints an NFT (FSTAKE). You can open as many as you want. Requires one-time FUEL approval for the stake contract, then createStake.</p>
+      <label for="nftStakeAmount">Amount (FUEL)</label>
+      <div class="input-row">
+        <input type="number" id="nftStakeAmount" placeholder="0.0" step="any" />
+        <button class="btn btn-ghost btn-sm" onclick="setMaxNftStakeAmount()">MAX</button>
+      </div>
+      <p class="hint" id="nftStakeBalHint">Balance: —</p>
+      <label for="nftStakeDays">Term (days) <span id="nftStakeTermRange" style="color:var(--dim);font-weight:400">min 1 · max 1000</span></label>
+      <div class="input-row">
+        <input type="number" id="nftStakeDays" value="90" min="1" max="1000" />
+        <button class="btn btn-ghost btn-sm" onclick="setMaxNftStakeTerm()">MAX</button>
+      </div>
+      <p class="hint" id="nftStakeAllowHint">Allowance: —</p>
+      <p class="hint">One click: if allowance is low, your wallet will ask to approve FUEL first, then create the stake (two txs in a row).</p>
+      <button class="btn btn-primary btn-block mt-12" id="nftStakeBtn" onclick="doNftStake()" disabled>Create Multi-Stake</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Your Multi-Stakes <span class="tag">FSTAKE NFTs</span></div>
+      <p class="hint" id="nftStakeCount">Positions: —</p>
+      <button class="btn btn-ghost btn-sm" onclick="loadNftStakes()">Refresh</button>
+      <div id="nftStakeList" class="mt-12 state-box">Connect wallet to load multi-stakes</div>
     </div>
   </div>
 </section>
@@ -741,8 +823,9 @@
         <tr><td>Daily Alloc</td><td id="bb-daily">—</td></tr>
         <tr><td>Last Interval</td><td id="bb-interval">—</td></tr>
       </table>
-      <p class="hint mt-12">Call the buy and burn keeper function via contract if interval is ready (1.5% incentive). UI triggers common path when available.</p>
-      <button class="btn btn-ghost btn-block" id="babBurnBtn" onclick="doBabBurn()" disabled>Buy & Burn Fuel</button>
+      <p class="hint mt-12" id="babNextHint">Next interval / keeper reward: loading…</p>
+      <p class="hint">Call the buy and burn keeper when the interval is ready (~1.5% incentive). The button simulates first and shows a clear reason if it would revert.</p>
+      <button class="btn btn-ghost btn-block" id="babBurnBtn" onclick="doBabBurn()" disabled>Buy &amp; Burn Fuel</button>
     </div>
   </div>
 
@@ -758,8 +841,9 @@
         <tr><td>Slippage</td><td id="mb-slip">—</td></tr>
       </table>
       <div>
-        <button class="btn btn-primary btn-block mt-12" id="moreBurnBtn" onclick="doMoreBurn()" disabled>Buy & Burn More</button>
-        <p class="hint mt-12">Earns 1.5% of interval allocation. Reverts if interval already burned or TWAP guard fails.</p>
+        <p class="hint" id="moreNextHint">Next interval / keeper reward: loading…</p>
+        <button class="btn btn-primary btn-block mt-12" id="moreBurnBtn" onclick="doMoreBurn()" disabled>Buy &amp; Burn More</button>
+        <p class="hint mt-12">Earns ~1.5% of interval allocation. Simulates before send; reverts if interval already burned or TWAP guard fails.</p>
       </div>
     </div>
   </div>
@@ -773,6 +857,7 @@
       <tr><td>FUEL Buy & Burn</td><td><a class="addr-link" target="_blank" id="a-bab" href="#">—</a></td></tr>
       <tr><td>MORE Burner</td><td><a class="addr-link" target="_blank" id="a-more" href="#">—</a></td></tr>
       <tr><td>Fee Distributor</td><td><a class="addr-link" target="_blank" id="a-fd" href="#">—</a></td></tr>
+      <tr><td>FUEL Stake (NFT multi)</td><td><a class="addr-link" target="_blank" id="a-stakenft" href="#">—</a></td></tr>
     </table>
   </div>
 </section>
@@ -784,7 +869,7 @@
   <div class="footer-inner">
     <div class="donate">
       <span class="donate-label">Donations:</span>
-      <a class="mono" id="donateLink" href="https://robin.etherscan.io/address/0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5" target="_blank" rel="noopener noreferrer" aria-label="Donation address 0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5 on the Robinhood Chain explorer"><span class="addr-full">0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5</span><span class="addr-short" aria-hidden="true">0x33cD…50e5</span></a>
+      <a class="mono" id="donateLink" href="https://robinhoodchain.blockscout.com/address/0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5" target="_blank" rel="noopener noreferrer" aria-label="Donation address 0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5 on the Robinhood Chain explorer"><span class="addr-full">0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5</span><span class="addr-short" aria-hidden="true">0x33cD…50e5</span></a>
       <button type="button" class="copy-btn" id="copyDonate" data-addr="0x33cD0CE479D33aa4dEc5E2b3f3A4683A561a50e5">Copy</button>
     </div>
     <div class="footer-meta">
@@ -798,7 +883,12 @@
 </div><!-- /.content -->
 </div><!-- /.app -->
 
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"
+        integrity="sha384-6Zl0Pc8zjSz8KvmNeXRvUQgY4ryFb+BwDvKCmLYcBME0joAaru491tQgi9B7zsMM"
+        crossorigin="anonymous"></script>
 
 <script>
 /* ===================== CONFIG ===================== */
@@ -819,6 +909,10 @@ const ADDR = {
   MORE: "0x86f11A15E1793e7ce1F4264830d1973e80339A51",
   FD: "0x2f69ff61802d9738e562e438d1f6326389d95861",
   WETH: "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+  /** NFT multi-stake (XENStake-style). Each createStake mints a FSTAKE NFT. */
+  STAKE_NFT: "0x6060acC907dE482a42fFA5AED51c72021e7579e1",
+  /** Canonical Multicall3 on Robinhood Chain */
+  MULTICALL3: "0xcA11bde05977b3631167028862bE2a173976CA11",
 };
 
 const FUEL_ABI = [
@@ -847,9 +941,25 @@ const FUEL_ABI = [
   "function userStakes(address) view returns (uint256 term, uint256 maturityTs, uint256 amount, uint256 apy)",
   "function balanceOf(address) view returns (uint256)",
   "function decimals() view returns (uint8)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
   "function feeDistributor() view returns (address)",
   "function vault() view returns (address)",
   "function buyAndBurn() view returns (address)",
+];
+
+/** FUEL Stake NFT — multi-stake; one NFT per stake position (fork of XENStake). */
+const STAKE_NFT_ABI = [
+  "function createStake(uint256 amount, uint256 term) returns (uint256 tokenId)",
+  "function endStake(uint256 tokenId)",
+  "function ownedTokens() view returns (uint256[])",
+  "function stakeInfo(uint256 tokenId) view returns (uint256)",
+  "function tokenIdCounter() view returns (uint256)",
+  "function ownerOf(uint256 tokenId) view returns (address)",
+  "function balanceOf(address owner) view returns (uint256)",
+  "function fuelToken() view returns (address)",
+  "function name() view returns (string)",
+  "function symbol() view returns (string)",
 ];
 
 const BATCH_ABI = [
@@ -902,12 +1012,19 @@ const MORE_ABI = [
 
 /* ===================== STATE ===================== */
 let provider, signer, account;
-let fuel, batch, vault, bab, more;
+let fuel, batch, vault, bab, more, stakeNft;
 let readProvider;
 let rpcReady = false;
 let userLoading = false;
+let userLoadQueued = false;   // if a load was requested while another ran, run once more after
+let txInFlight = false;       // prevent double-submit on any action button
 let rankHistory = [];         // {ts, rank} samples, used to project reward at maturity
 window._lastGlobalRank = 0n;
+/** Cache proxy addresses per wallet — they never change for a given index. */
+const proxyAddrCache = new Map(); // key: `${account.toLowerCase()}:${index}` -> address
+let pollTimer = null;
+let chainBlockTs = 0;         // latest block timestamp (seconds), refreshed with polls
+let mintPreviewSeq = 0;       // ignore out-of-order fee/preview responses
 
 /** Record a globalRank sample; keeps last 30 min (capped) so we can estimate mints/day. */
 function pushRankSample(rank) {
@@ -995,35 +1112,77 @@ function fmtRelative(tsSeconds) {
 function toast(msg, type = "") {
   const el = $("toast");
   el.textContent = msg;
-  el.className = "show " + type;
+  el.className = "show " + (type || "");
   clearTimeout(el._t);
-  el._t = setTimeout(() => { el.className = ""; }, 5000);
+  // Errors stay longer; pending stays until cleared; success ~5s
+  const ms = type === "err" ? 12000 : type === "pending" ? 0 : 5000;
+  if (ms > 0) el._t = setTimeout(() => { el.className = ""; }, ms);
+}
+function clearToast() {
+  const el = $("toast");
+  clearTimeout(el._t);
+  el.className = "";
+}
+function explorerTx(hash) {
+  return `${EXPLORER}/tx/${hash}`;
 }
 function explorer(addr) {
   return `${EXPLORER}/address/${addr}`;
 }
 function setState(el, kind, msg) {
   if (!el) return;
+  const safe = (msg == null ? "" : String(msg));
   if (kind === "loading") {
     el.className = "state-box loading";
-    el.innerHTML = '<span class="spinner"></span>' + (msg || "Loading…");
+    el.textContent = "";
+    const spin = document.createElement("span");
+    spin.className = "spinner";
+    el.appendChild(spin);
+    el.appendChild(document.createTextNode(safe || "Loading…"));
   } else if (kind === "error") {
     el.className = "state-box error";
-    el.innerHTML = msg || "Failed to load";
+    el.textContent = safe || "Failed to load";
   } else if (kind === "empty") {
     el.className = "state-box";
-    el.innerHTML = msg || "Nothing here";
+    el.textContent = safe || "Nothing here";
   } else {
     el.className = "";
-    el.innerHTML = msg;
+    el.innerHTML = msg; // intentional HTML for tables / rich status
   }
 }
 function setLinks() {
-  const map = { fuel: ADDR.FUEL, batch: ADDR.BATCH, vault: ADDR.VAULT, bab: ADDR.BAB, more: ADDR.MORE, fd: ADDR.FD };
+  const map = { fuel: ADDR.FUEL, batch: ADDR.BATCH, vault: ADDR.VAULT, bab: ADDR.BAB, more: ADDR.MORE, fd: ADDR.FD, stakenft: ADDR.STAKE_NFT };
   for (const [k, v] of Object.entries(map)) {
     const a = $("a-" + k);
-    if (a) { a.href = explorer(v); a.textContent = v; }
+    if (a) {
+      a.href = explorer(v);
+      a.textContent = v;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+    }
   }
+}
+function nftInstanceUrl(tokenId) {
+  return `${EXPLORER}/token/${ADDR.STAKE_NFT}/instance/${tokenId}`;
+}
+
+/** Decode packed stakeInfo from FUEL Stake NFT (same layout as XEN StakeInfo).
+ *  amount is stored in whole tokens (wei / 1e18). term is days. */
+function decodeStakeInfo(info) {
+  const n = BigInt(info);
+  const term = Number((n >> 240n) & 0xffffn);
+  const maturityTs = Number((n >> 176n) & 0xffffffffffffffffn);
+  const amountWhole = (n >> 48n) & ((1n << 128n) - 1n);
+  const apy = Number((n >> 32n) & 0xffffn);
+  const rarityScore = Number((n >> 16n) & 0xffffn);
+  return {
+    term,
+    maturityTs,
+    amount: amountWhole * 10n ** 18n, // restore 18-decimal wei for display helpers
+    amountWhole,
+    apy,
+    rarityScore,
+  };
 }
 
 /* ===================== PROVIDER ===================== */
@@ -1044,6 +1203,14 @@ async function probeRpc(url) {
   const p = new ethers.JsonRpcProvider(url, CHAIN_ID, { staticNetwork: true });
   const bn = await withTimeout(p.getBlockNumber(), RPC_PROBE_TIMEOUT, "RPC probe");
   if (!bn && bn !== 0) throw new Error("bad block number");
+  // Reject endpoints that answer for a different chain (staticNetwork alone does not verify).
+  const cidHex = await withTimeout(p.send("eth_chainId", []), RPC_PROBE_TIMEOUT, "chainId probe");
+  const cid = parseInt(cidHex, 16);
+  if (cid !== CHAIN_ID) throw new Error("RPC chainId " + cid + " ≠ " + CHAIN_ID);
+  try {
+    const block = await withTimeout(p.getBlock("latest"), RPC_PROBE_TIMEOUT, "block probe");
+    if (block && block.timestamp) chainBlockTs = Number(block.timestamp);
+  } catch (_) {}
   return p;
 }
 
@@ -1076,6 +1243,7 @@ function bindContracts(runner) {
   vault = new ethers.Contract(ADDR.VAULT, VAULT_ABI, runner);
   bab = new ethers.Contract(ADDR.BAB, BAB_ABI, runner);
   more = new ethers.Contract(ADDR.MORE, MORE_ABI, runner);
+  stakeNft = new ethers.Contract(ADDR.STAKE_NFT, STAKE_NFT_ABI, runner);
 }
 
 async function initRead() {
@@ -1088,7 +1256,8 @@ async function initRead() {
     rpcUrlIndex = RPC_URLS.indexOf(url);
     bindContracts(readProvider);
     if (signer) fuel = fuel.connect(signer), batch = batch.connect(signer),
-      vault = vault.connect(signer), bab = bab.connect(signer), more = more.connect(signer);
+      vault = vault.connect(signer), bab = bab.connect(signer), more = more.connect(signer),
+      stakeNft = stakeNft.connect(signer);
     rpcReady = true;
     rpcConsecutiveFailures = 0;
     $("chainBadge").textContent = "Robinhood · 4663";
@@ -1190,7 +1359,7 @@ async function autoReconnect() {
 
 async function connectWallet(silent = false) {
   if (!window.ethereum) {
-    if (!silent) toast("No wallet found. Install MetaMask or similar.", "err");
+    if (!silent) toast("No injected wallet found. Install MetaMask, Rabby, or another EIP-1193 wallet (or open this page inside a wallet browser).", "err");
     return;
   }
   try {
@@ -1222,6 +1391,7 @@ async function connectWallet(silent = false) {
     vault = vault.connect(signer);
     bab = bab.connect(signer);
     more = more.connect(signer);
+    stakeNft = stakeNft.connect(signer);
 
     enableActions(true);
     if (!silent) toast("Connected " + shortAddr(account), "ok");
@@ -1236,16 +1406,58 @@ async function connectWallet(silent = false) {
   }
 }
 
+const ACTION_DEFAULT_LABELS = {
+  mintBtn: "Claim Rank",
+  claimBtn: "Claim Solo Reward",
+  shareBtn: "Claim & Share",
+  stakeClaimBtn: "Claim & Stake",
+  stakeBtn: "Stake",
+  withdrawBtn: "Withdraw",
+  nftStakeBtn: "Create Multi-Stake",
+  sweepBtn: "Sweep Vault",
+  babBurnBtn: "Buy & Burn Fuel",
+  moreBurnBtn: "Buy & Burn More",
+};
 function enableActions(on) {
-  ["mintBtn","claimBtn","shareBtn","stakeClaimBtn","stakeBtn","withdrawBtn",
-   "sweepBtn","babBurnBtn","moreBurnBtn"].forEach(id => {
+  Object.keys(ACTION_DEFAULT_LABELS).forEach((id) => {
     const el = $(id);
-    if (el) el.disabled = !on;
+    if (!el) return;
+    if (on) {
+      el.disabled = false;
+      // Restore label only if we previously set a connect hint
+      if (el.dataset.connectHint === "1") {
+        el.textContent = ACTION_DEFAULT_LABELS[id];
+        delete el.dataset.connectHint;
+        el.onclick = null; // handlers are inline onclick= in HTML for most
+      }
+    } else {
+      el.disabled = false; // clickable so it can open connect
+      el.dataset.connectHint = "1";
+      const verb = ACTION_DEFAULT_LABELS[id] || "continue";
+      el.textContent = "Connect wallet to " + verb.toLowerCase().replace(/^claim rank$/, "mint");
+      el.onclick = (ev) => { ev.preventDefault(); connectWallet(); };
+    }
   });
+  // Re-bind primary handlers after connect (inline attributes still fire if not overwritten)
+  if (on) {
+    const rebind = {
+      mintBtn: doMint, claimBtn: doClaimReward, shareBtn: doClaimShare,
+      stakeClaimBtn: doClaimStake, stakeBtn: doStake, withdrawBtn: doWithdraw,
+      nftStakeBtn: doNftStake, sweepBtn: doSweep, babBurnBtn: doBabBurn, moreBurnBtn: doMoreBurn,
+    };
+    for (const [id, fn] of Object.entries(rebind)) {
+      const el = $(id);
+      if (el) el.onclick = () => fn();
+    }
+  }
 }
 
 /* ===================== LOAD STATS ===================== */
 async function loadGlobal() {
+  try {
+    const block = await readProvider.getBlock("latest");
+    if (block && block.timestamp) chainBlockTs = Number(block.timestamp);
+  } catch (_) {}
   const [rank, minters, amp, eaa, apy, maxTerm, staked, astakes, genesis] = await Promise.all([
     fuel.globalRank(), fuel.activeMinters(), fuel.getCurrentAMP(), fuel.getCurrentEAAR(),
     fuel.getCurrentAPY(), fuel.getCurrentMaxTerm(), fuel.totalTokenStaked(), fuel.activeStakes(),
@@ -1341,6 +1553,29 @@ async function loadGlobal() {
     $("b-daily").textContent = "Daily drip: " + (Number(bDaily) / 100) + "%";
     $("bb-daily").textContent = (Number(bDaily) / 100) + "%";
     $("bb-interval").textContent = bInt.toString();
+    // Daily drip style burners: next window is roughly next UTC day boundary from start
+    try {
+      const startTs = Number(await bab.startTimeStamp());
+      const nowTs = chainBlockTs || Math.floor(Date.now() / 1000);
+      const day = 86400;
+      const elapsed = Math.max(0, nowTs - startTs);
+      const currentInterval = Math.floor(elapsed / day);
+      const nextEnd = startTs + (currentInterval + 1) * day;
+      const pool = Number(ethers.formatEther(bEth));
+      const allocPct = Number(bDaily) / 10000; // if stored as bps-like; UI previously /100
+      // Keep same scale as displayed "Daily drip"
+      const dailyFrac = Number(bDaily) / 100 / 100; // displayed as (n/100)%
+      const rewardEth = pool * (0.015); // ~1.5% of pool/interval as advertised incentive scale
+      const nextEl = $("babNextHint");
+      if (nextEl) {
+        if (Number(bInt) < currentInterval) {
+          nextEl.textContent = `Interval ready to burn · est. keeper share ~${rewardEth.toFixed(6)} ETH (1.5% of pool)`;
+          if (account) $("babBurnBtn").disabled = false;
+        } else {
+          nextEl.textContent = `Next window ${fmtRelative(nextEnd)} · pool ${fmtEth(bEth)} · ~1.5% keeper incentive when ready`;
+        }
+      }
+    } catch (e2) { console.warn("BAB next", e2); }
   } catch (e) { console.warn("BAB", e); }
 
   // MORE
@@ -1360,6 +1595,25 @@ async function loadGlobal() {
     $("mb-daily").textContent = (Number(mDaily) / 100) + "%";
     $("mb-interval").textContent = mInt.toString();
     $("mb-slip").textContent = mSlip + "%";
+    try {
+      const startTs = Number(await more.startTimeStamp());
+      const nowTs = chainBlockTs || Math.floor(Date.now() / 1000);
+      const day = 86400;
+      const elapsed = Math.max(0, nowTs - startTs);
+      const currentInterval = Math.floor(elapsed / day);
+      const nextEnd = startTs + (currentInterval + 1) * day;
+      const pool = Number(ethers.formatEther(mEth));
+      const rewardEth = pool * 0.015;
+      const nextEl = $("moreNextHint");
+      if (nextEl) {
+        if (Number(mInt) < currentInterval) {
+          nextEl.textContent = `Interval ready · est. keeper share ~${rewardEth.toFixed(6)} ETH`;
+          if (account) $("moreBurnBtn").disabled = false;
+        } else {
+          nextEl.textContent = `Next window ${fmtRelative(nextEnd)} · pool ${fmtEth(mEth)} · ~1.5% when ready`;
+        }
+      }
+    } catch (e2) { console.warn("MORE next", e2); }
   } catch (e) { console.warn("MORE", e); }
 
   // fee previews
@@ -1434,12 +1688,14 @@ async function updateFeeHints() {
 }
 
 async function updateMintPreview() {
+  const seq = ++mintPreviewSeq;
   try {
-    const count = Math.max(1, Number($("mintCount").value) || 1);
+    const count = Math.max(1, Math.floor(Number($("mintCount").value) || 1));
     const term = Number($("mintTerm").value) || 7;
     const [rank, amp, eaa] = await Promise.all([
       fuel.globalRank(), fuel.getCurrentAMP(), fuel.getCurrentEAAR(),
     ]);
+    if (seq !== mintPreviewSeq) return; // stale
     const r0 = Number(rank);
     $("previewCount").textContent = String(count);
     $("previewRank").textContent = count === 1
@@ -1447,10 +1703,44 @@ async function updateMintPreview() {
       : `${r0.toLocaleString()}–${(r0 + count - 1).toLocaleString()}`;
     $("previewAmp").textContent = amp.toString();
     $("previewEaa").textContent = eaa.toString();
-    const matTs = Date.now() / 1000 + term * 86400;
+    const nowTs = chainBlockTs || (Date.now() / 1000);
+    const matTs = nowTs + term * 86400;
     const matLabel = fmtDateTime(matTs) + " (" + fmtRelative(matTs) + ")";
     $("previewMat").textContent = matLabel;
     $("mintUnlockHint").textContent = "Unlocks " + matLabel;
+
+    // Projected reward: use estimated ranks/day when available
+    const pace = estimatedRanksPerDay();
+    const rewardEl = $("previewReward");
+    const hintEl = $("previewRewardHint");
+    if (rewardEl) {
+      try {
+        let total = 0n;
+        for (let i = 0; i < count; i++) {
+          const startRank = BigInt(r0 + i);
+          let rankDelta;
+          if (pace != null && pace > 0) {
+            rankDelta = BigInt(Math.max(0, Math.floor(pace * term)));
+          } else {
+            // No pace yet — show reward if global rank only moved by the batch itself (minimal)
+            rankDelta = BigInt(Math.max(0, count - 1 - i));
+          }
+          if (rankDelta <= 0n) continue;
+          const g = await fuel.getGrossReward(rankDelta, amp, BigInt(term), eaa);
+          if (seq !== mintPreviewSeq) return;
+          total += g;
+        }
+        if (pace != null && pace > 0) {
+          rewardEl.textContent = fmtFuel(total) + ` (≈${fmt(pace, 0)} ranks/day)`;
+          if (hintEl) hintEl.textContent = "Uses live rank samples from this session. Actual reward depends on global rank at claim time and any late-claim penalty.";
+        } else {
+          rewardEl.textContent = total > 0n ? fmtFuel(total) + " (min, no rank pace yet)" : "— (collecting rank pace…)";
+          if (hintEl) hintEl.textContent = "Projection fills in after a few minutes of rank movement on this page. Reward grows with global rank between mint and claim.";
+        }
+      } catch (e) {
+        rewardEl.textContent = "—";
+      }
+    }
   } catch (_) {}
 }
 
@@ -1473,11 +1763,13 @@ async function totalPendingReward(mints, globalRank) {
 /** Fetch all batch-proxy mints for the connected wallet, in small parallel batches
  *  instead of one-at-a-time (was up to 128 sequential RPC round-trips). */
 async function fetchProxyMints() {
-  if (!account) return [];
+  if (!account) return { total: 0, mints: [] };
   const n = Number(await batch.proxiesOf(account));
-  const max = Math.min(n, 64);
-  const CONCURRENCY = 8; // keep some cap so we don't slam the RPC node with 64 at once
+  // Load all proxies up to a high practical cap (covers max 100-mint batches and more).
+  const max = Math.min(n, 256);
+  const CONCURRENCY = 10;
   const out = [];
+  const acctKey = account.toLowerCase();
   for (let start = 0; start < max; start += CONCURRENCY) {
     const end = Math.min(start + CONCURRENCY, max);
     const chunk = await Promise.all(
@@ -1485,7 +1777,12 @@ async function fetchProxyMints() {
         const i = start + k;
         return (async () => {
           try {
-            const p = await batch.proxyAddress(account, i);
+            const cacheKey = acctKey + ":" + i;
+            let p = proxyAddrCache.get(cacheKey);
+            if (!p) {
+              p = await batch.proxyAddress(account, i);
+              proxyAddrCache.set(cacheKey, p);
+            }
             const info = await fuel.userMints(p);
             return {
               index: i,
@@ -1521,23 +1818,28 @@ function sizeScrollTableToRows(container, visibleRows = 5) {
   if (!table) return;
   const headerRow = table.querySelector("tr");
   const bodyRows = Array.from(table.querySelectorAll("tr")).slice(1);
+  // Always keep overflow so long lists don't expand the page; only lift the
+  // height cap when there are few enough rows that scrolling isn't needed.
+  container.style.overflowY = "auto";
+  container.style.overflowX = "auto";
   if (bodyRows.length <= visibleRows) {
-    container.style.maxHeight = "none";
-    container.style.overflowY = "visible";
+    container.style.maxHeight = "";
     return;
   }
   let total = headerRow ? headerRow.getBoundingClientRect().height : 0;
   for (let i = 0; i < visibleRows && i < bodyRows.length; i++) {
     total += bodyRows[i].getBoundingClientRect().height;
   }
+  // If layout hasn't resolved yet (height 0), fall back to a fixed pixel cap
+  // so the list still scrolls instead of growing unbounded.
+  if (total < 40) total = 48 + visibleRows * 44;
   container.style.maxHeight = Math.ceil(total) + "px";
-  container.style.overflowY = "auto";
 }
 
 function mintStatusLabel(matTs) {
   const mat = Number(matTs);
-  const now = Date.now() / 1000;
-  if (now > mat) return { text: "Ready", cls: "status-ok", ready: true };
+  const now = chainBlockTs || (Date.now() / 1000);
+  if (now >= mat) return { text: "Ready", cls: "status-ok", ready: true };
   const left = mat - now;
   const d = Math.floor(left / 86400);
   const h = Math.floor((left % 86400) / 3600);
@@ -1580,6 +1882,10 @@ async function loadUser(silent = false) {
     setState($("soloMintStatus"), "empty", "Connect wallet…");
     setState($("userStakeInfo"), "empty", "Connect wallet…");
     setState($("proxyList"), "empty", "Connect wallet to load proxies");
+    setState($("nftStakeList"), "empty", "Connect wallet to load multi-stakes");
+    if ($("nftStakeCount")) $("nftStakeCount").textContent = "Positions: —";
+    if ($("nftStakeBalHint")) $("nftStakeBalHint").textContent = "Balance: —";
+    if ($("nftStakeAllowHint")) $("nftStakeAllowHint").textContent = "Allowance: —";
     closeRemintModal();
     return;
   }
@@ -1587,8 +1893,12 @@ async function loadUser(silent = false) {
     setState($("userPosition"), "error", "RPC not connected — cannot load user data. Refresh the page.");
     return;
   }
-  if (userLoading) return;
+  if (userLoading) {
+    userLoadQueued = true;
+    return;
+  }
   userLoading = true;
+  userLoadQueued = false;
 
   if (!silent) {
     setState($("userPosition"), "loading", "Loading your mints & balances…");
@@ -1678,9 +1988,10 @@ async function loadUser(silent = false) {
     });
   }
 
-  // Stake page
+  // Stake page (native + multi-stake NFT)
   window._fuelBalance = bal;
   $("stakeBalHint").textContent = "Balance: " + fmtFuel(bal);
+  if ($("nftStakeBalHint")) $("nftStakeBalHint").textContent = "Balance: " + fmtFuel(bal);
   if (stake.amount > 0n) {
     const mat = Number(stake.maturityTs);
     $("userStakeInfo").className = "";
@@ -1692,9 +2003,13 @@ async function loadUser(silent = false) {
     </table>`;
     $("withdrawBtn").disabled = false;
   } else {
-    setState($("userStakeInfo"), "empty", "No active stake");
+    setState($("userStakeInfo"), "empty", "No active native stake");
     $("withdrawBtn").disabled = true;
   }
+  // Multi-stake NFTs + allowance (non-blocking for the rest of the page)
+  refreshNftAllowance().catch(() => {});
+  loadNftStakes().catch((e) => console.warn("loadNftStakes", e.message));
+  if ($("nftStakeBtn")) $("nftStakeBtn").disabled = false;
 
   // Proxies list on Claim page — mints created in the same batch tx (consecutive
   // indices sharing the same term + unlock time) are grouped into one row, with
@@ -1783,6 +2098,11 @@ async function loadUser(silent = false) {
     }
   } finally {
     userLoading = false;
+    if (userLoadQueued) {
+      userLoadQueued = false;
+      // Re-run so post-tx refresh is not dropped
+      loadUser(true).catch((e) => console.warn("queued loadUser", e.message));
+    }
   }
 }
 
@@ -1832,21 +2152,25 @@ async function updateRemintModalFee() {
 
 async function confirmRemint() {
   if (!_remintTarget) return;
-  const term = Number($("remintModalTerm").value);
-  const c = clampTerm(term, "mint");
-  if (!c.ok) return toast(c.msg, "err");
-  const { start, count } = _remintTarget;
-  closeRemintModal();
-  const gp = await getGasPrice();
-  const [claimFee, mintFee] = await Promise.all([
-    batch.batchClaimFee(count, gp),
-    batch.batchFee(count, gp),
-  ]);
-  const value = (claimFee + mintFee) * 120n / 100n;
-  await withTx(
-    () => batch.batchClaimAndRemint(start, count, term, { value }),
-    `Claim + Remint [${start}..${start + count - 1}]`
-  );
+  try {
+    const term = Number($("remintModalTerm").value);
+    const c = clampTerm(term, "mint");
+    if (!c.ok) return toast(c.msg, "err");
+    const { start, count } = _remintTarget;
+    closeRemintModal();
+    const gp = await getGasPrice();
+    const [claimFee, mintFee] = await Promise.all([
+      batch.batchClaimFee(count, gp),
+      batch.batchFee(count, gp),
+    ]);
+    const value = (claimFee + mintFee) * 120n / 100n;
+    await withTx(
+      () => batch.batchClaimAndRemint(start, count, term, { value }),
+      `Claim + Remint [${start}..${start + count - 1}]`
+    );
+  } catch (e) {
+    toast((e.shortMessage || e.message || String(e)).slice(0, 180), "err");
+  }
 }
 
 async function loadProxies() {
@@ -1887,18 +2211,43 @@ async function refreshAll(silent = false) {
 
 /* ===================== ACTIONS ===================== */
 async function withTx(fn, label) {
+  if (txInFlight) {
+    toast("Another transaction is already in progress…", "err");
+    return;
+  }
+  txInFlight = true;
   try {
-    toast(label + "…");
+    toast(label + " — confirm in wallet…", "pending");
     const tx = await fn();
-    toast("Submitted " + shortAddr(tx.hash));
+    const link = explorerTx(tx.hash);
+    // Persistent pending with explorer link
+    const el = $("toast");
+    el.className = "show pending";
+    el.textContent = "";
+    el.appendChild(document.createTextNode("Submitted " + shortAddr(tx.hash) + " · "));
+    const a = document.createElement("a");
+    a.href = link;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.className = "tx-link";
+    a.textContent = "View tx";
+    el.appendChild(a);
     const rc = await tx.wait();
     if (rc.status !== 1) throw new Error("Tx reverted");
-    toast(label + " confirmed", "ok");
+    toast(label + " confirmed · " + shortAddr(tx.hash), "ok");
     await refreshAll();
   } catch (e) {
     console.error(e);
-    const msg = e.reason || e.shortMessage || e.message || String(e);
-    toast(msg.slice(0, 180), "err");
+    const code = e.code || e.info?.error?.code;
+    const raw = e.reason || e.shortMessage || e.message || String(e);
+    // User rejected wallet prompt — not a hard protocol error
+    if (code === 4001 || /user rejected|denied|rejected the request/i.test(raw)) {
+      toast("Transaction cancelled in wallet.", "");
+    } else {
+      toast(raw.slice(0, 180), "err");
+    }
+  } finally {
+    txInFlight = false;
   }
 }
 
@@ -1916,21 +2265,29 @@ function clampTerm(term, kind) {
  * derived from the wallet's current proxy count — no manual index entry needed.
  */
 async function doMint() {
-  const count = Math.max(1, Number($("mintCount").value) || 1);
-  const term = Number($("mintTerm").value);
-  const c = clampTerm(term, "mint");
-  if (!c.ok) return toast(c.msg, "err");
-  if (count > 100) return toast("Max 100 mints per batch", "err");
-  const gp = await getGasPrice();
-  if (count === 1) {
-    const fee = await fuel.mintFee(gp);
-    const value = fee * 120n / 100n; // 20% buffer
-    await withTx(() => fuel.claimRank(term, { value }), "Claim Rank");
-  } else {
-    const start = Number(await batch.proxiesOf(account)) || 0;
-    const fee = await batch.batchFee(count, gp);
-    const value = fee * 120n / 100n;
-    await withTx(() => batch.batchClaimRank(start, count, term, { value }), `Batch mint (${count})`);
+  if (!account) return connectWallet();
+  try {
+    const countRaw = $("mintCount").value;
+    const count = Math.max(1, Math.floor(Number(countRaw) || 0));
+    if (!Number.isFinite(count) || count < 1) return toast("Enter a whole number of mints (1–100)", "err");
+    if (count > 100) return toast("Max 100 mints per batch", "err");
+    const term = Number($("mintTerm").value);
+    const c = clampTerm(term, "mint");
+    if (!c.ok) return toast(c.msg, "err");
+    const gp = await getGasPrice();
+    if (count === 1) {
+      const fee = await fuel.mintFee(gp);
+      const value = fee * 120n / 100n; // 20% buffer (excess is refunded by protocol fee logic when applicable)
+      await withTx(() => fuel.claimRank(term, { value }), "Claim Rank");
+    } else {
+      const start = Number(await batch.proxiesOf(account)) || 0;
+      const fee = await batch.batchFee(count, gp);
+      const value = fee * 120n / 100n;
+      await withTx(() => batch.batchClaimRank(start, count, term, { value }), `Batch mint (${count})`);
+    }
+  } catch (e) {
+    console.error(e);
+    toast((e.shortMessage || e.message || String(e)).slice(0, 180), "err");
   }
 }
 
@@ -1942,86 +2299,329 @@ function notReadyToast(remaining) {
 }
 
 async function doClaimReward() {
+  if (!account) return connectWallet();
   if ($("claimBtn").dataset.ready !== "1") return notReadyToast($("claimBtn").dataset.remaining);
-  const gp = await getGasPrice();
-  const fee = await fuel.claimFee(gp);
-  const value = fee * 120n / 100n;
-  await withTx(() => fuel.claimMintReward({ value }), "Claim Reward");
+  try {
+    const gp = await getGasPrice();
+    const fee = await fuel.claimFee(gp);
+    const value = fee * 120n / 100n;
+    await withTx(() => fuel.claimMintReward({ value }), "Claim Reward");
+  } catch (e) {
+    toast((e.shortMessage || e.message || String(e)).slice(0, 180), "err");
+  }
 }
 
 /** Claim a single batch proxy by index via BatchMinter.batchClaimReward(index, 1).
  *  ready/remaining come from the row's own status at render time. */
 async function doClaimOneProxy(index, ready = true, remaining = "") {
   if (!ready) return notReadyToast(remaining);
-  const gp = await getGasPrice();
-  const fee = await batch.batchClaimFee(1, gp);
-  const value = fee * 120n / 100n;
-  await withTx(
-    () => batch.batchClaimReward(index, 1, { value }),
-    `Claim proxy #${index}`
-  );
+  try {
+    const gp = await getGasPrice();
+    const fee = await batch.batchClaimFee(1, gp);
+    const value = fee * 120n / 100n;
+    await withTx(
+      () => batch.batchClaimReward(index, 1, { value }),
+      `Claim proxy #${index}`
+    );
+  } catch (e) {
+    toast((e.shortMessage || e.message || String(e)).slice(0, 180), "err");
+  }
 }
 
 /** Claim a whole grouped batch (one or more proxies minted together) in a single tx. */
 async function doClaimGroup(start, count, ready = true, remaining = "") {
   if (!ready) return notReadyToast(remaining);
-  const gp = await getGasPrice();
-  const fee = await batch.batchClaimFee(count, gp);
-  const value = fee * 120n / 100n;
-  await withTx(
-    () => batch.batchClaimReward(start, count, { value }),
-    count > 1 ? `Claim batch [${start}..${start + count - 1}]` : `Claim proxy #${start}`
-  );
+  try {
+    const gp = await getGasPrice();
+    const fee = await batch.batchClaimFee(count, gp);
+    const value = fee * 120n / 100n;
+    await withTx(
+      () => batch.batchClaimReward(start, count, { value }),
+      count > 1 ? `Claim batch [${start}..${start + count - 1}]` : `Claim proxy #${start}`
+    );
+  } catch (e) {
+    toast((e.shortMessage || e.message || String(e)).slice(0, 180), "err");
+  }
 }
 
 async function doClaimShare() {
+  if (!account) return connectWallet();
   if ($("shareBtn").dataset.ready !== "1") return notReadyToast($("shareBtn").dataset.remaining);
-  const other = $("shareAddr").value.trim();
-  const pct = Number($("sharePct").value);
-  if (!ethers.isAddress(other)) return toast("Invalid address", "err");
-  const gp = await getGasPrice();
-  const fee = await fuel.claimFee(gp);
-  const value = fee * 120n / 100n;
-  await withTx(() => fuel.claimMintRewardAndShare(other, pct, { value }), "Claim & Share");
+  try {
+    const other = $("shareAddr").value.trim();
+    const pct = Number($("sharePct").value);
+    if (!ethers.isAddress(other)) return toast("Invalid address", "err");
+    if (!Number.isFinite(pct) || pct < 1 || pct > 100) return toast("Share percent must be 1–100", "err");
+    if (!confirm(`Send ${pct}% of this mint reward to\n${other}\n\nThis cannot be undone. Continue?`)) return;
+    const gp = await getGasPrice();
+    const fee = await fuel.claimFee(gp);
+    const value = fee * 120n / 100n;
+    await withTx(() => fuel.claimMintRewardAndShare(other, pct, { value }), "Claim & Share");
+  } catch (e) {
+    toast((e.shortMessage || e.message || String(e)).slice(0, 180), "err");
+  }
 }
 
 async function doClaimStake() {
+  if (!account) return connectWallet();
   if ($("stakeClaimBtn").dataset.ready !== "1") return notReadyToast($("stakeClaimBtn").dataset.remaining);
-  const pct = Number($("stakePct").value);
-  const term = Number($("stakeTerm").value);
-  const c = clampTerm(term, "stake");
-  if (!c.ok) return toast(c.msg, "err");
-  const gp = await getGasPrice();
-  const fee = await fuel.claimFee(gp);
-  const value = fee * 120n / 100n;
-  await withTx(() => fuel.claimMintRewardAndStake(pct, term, { value }), "Claim & Stake");
+  try {
+    const pct = Number($("stakePct").value);
+    const term = Number($("stakeTerm").value);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) return toast("Stake percent must be 0–100", "err");
+    const c = clampTerm(term, "stake");
+    if (!c.ok) return toast(c.msg, "err");
+    const gp = await getGasPrice();
+    const fee = await fuel.claimFee(gp);
+    const value = fee * 120n / 100n;
+    await withTx(() => fuel.claimMintRewardAndStake(pct, term, { value }), "Claim & Stake");
+  } catch (e) {
+    toast((e.shortMessage || e.message || String(e)).slice(0, 180), "err");
+  }
 }
 
 async function doStake() {
-  const amount = ethers.parseEther($("stakeAmount").value || "0");
-  const term = Number($("stakeDays").value);
-  if (amount <= 0n) return toast("Enter amount", "err");
-  const c = clampTerm(term, "stake");
-  if (!c.ok) return toast(c.msg, "err");
-  await withTx(() => fuel.stake(amount, term), "Stake");
+  if (!account) return connectWallet();
+  try {
+    let amount;
+    try {
+      amount = ethers.parseEther(($("stakeAmount").value || "0").trim());
+    } catch {
+      return toast("Invalid FUEL amount", "err");
+    }
+    const term = Number($("stakeDays").value);
+    if (amount <= 0n) return toast("Enter amount", "err");
+    const c = clampTerm(term, "stake");
+    if (!c.ok) return toast(c.msg, "err");
+    await withTx(() => fuel.stake(amount, term), "Stake");
+  } catch (e) {
+    toast((e.shortMessage || e.message || String(e)).slice(0, 180), "err");
+  }
 }
 
 async function doWithdraw() {
   await withTx(() => fuel.withdraw(), "Withdraw stake");
 }
 
+function setMaxNftStakeAmount() {
+  const bal = window._fuelBalance;
+  if (bal == null) return toast("Connect your wallet to see your balance", "err");
+  $("nftStakeAmount").value = ethers.formatEther(bal);
+}
+function setMaxNftStakeTerm() {
+  $("nftStakeDays").value = 1000;
+}
+
+async function refreshNftAllowance() {
+  const hint = $("nftStakeAllowHint");
+  if (!account || !fuel) {
+    if (hint) hint.textContent = "Allowance: —";
+    return 0n;
+  }
+  try {
+    const all = await fuel.allowance(account, ADDR.STAKE_NFT);
+    window._nftStakeAllowance = all;
+    if (hint) {
+      hint.textContent = all === 0n
+        ? "Allowance: 0 (will approve on next stake)"
+        : all >= ethers.MaxUint256 / 2n
+          ? "Allowance: unlimited"
+          : "Allowance: " + fmtFuel(all);
+    }
+    return all;
+  } catch (e) {
+    if (hint) hint.textContent = "Allowance: unavailable";
+    return 0n;
+  }
+}
+
+/**
+ * One-button multi-stake: if allowance is too low, send approve first (wait for
+ * confirmation), then createStake. User only clicks Create Multi-Stake once.
+ */
+async function doNftStake() {
+  if (!account) return toast("Connect wallet first", "err");
+  const amount = ethers.parseEther($("nftStakeAmount").value || "0");
+  const term = Number($("nftStakeDays").value);
+  if (amount <= 0n) return toast("Enter amount", "err");
+  if (!Number.isFinite(term) || term < 1) return toast("Term must be at least 1 day", "err");
+  if (term > 1000) return toast("Max term is 1000 days", "err");
+
+  const btn = $("nftStakeBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Working…"; }
+
+  try {
+    let allowance = window._nftStakeAllowance;
+    try {
+      allowance = await fuel.allowance(account, ADDR.STAKE_NFT);
+      window._nftStakeAllowance = allowance;
+    } catch (_) {
+      if (allowance == null) allowance = 0n;
+    }
+
+    if (allowance < amount) {
+      // Approve unlimited so later stakes only need one tx
+      toast("Approve FUEL in your wallet (1 of 2)…");
+      try {
+        const tx = await fuel.approve(ADDR.STAKE_NFT, ethers.MaxUint256);
+        toast("Approve submitted " + shortAddr(tx.hash));
+        const rc = await tx.wait();
+        if (rc.status !== 1) throw new Error("Approve tx reverted");
+        toast("Approve confirmed — now create stake (2 of 2)", "ok");
+        window._nftStakeAllowance = ethers.MaxUint256;
+      } catch (e) {
+        console.error(e);
+        const msg = e.reason || e.shortMessage || e.message || String(e);
+        toast("Approve failed: " + msg.slice(0, 160), "err");
+        return;
+      }
+    }
+
+    toast("Create multi-stake — confirm in wallet…");
+    try {
+      const tx = await stakeNft.createStake(amount, term);
+      toast("Submitted " + shortAddr(tx.hash));
+      const rc = await tx.wait();
+      if (rc.status !== 1) throw new Error("Tx reverted");
+      toast("Multi-stake created", "ok");
+      $("nftStakeAmount").value = "";
+      await refreshAll();
+    } catch (e) {
+      console.error(e);
+      const msg = e.reason || e.shortMessage || e.message || String(e);
+      toast(msg.slice(0, 180), "err");
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = !account;
+      btn.textContent = "Create Multi-Stake";
+    }
+    await refreshNftAllowance();
+    await loadNftStakes().catch(() => {});
+  }
+}
+
+async function doEndNftStake(tokenId, ready = true, remaining = "") {
+  if (!ready) return notReadyToast(remaining);
+  await withTx(() => stakeNft.endStake(tokenId), `End multi-stake #${tokenId}`);
+  await loadNftStakes();
+}
+
+/**
+ * Load the connected wallet's FSTAKE NFT positions.
+ * ownedTokens() uses msg.sender, so the call must run with from: account.
+ */
+async function loadNftStakes() {
+  const listEl = $("nftStakeList");
+  const countEl = $("nftStakeCount");
+  if (!account) {
+    setState(listEl, "empty", "Connect wallet to load multi-stakes");
+    if (countEl) countEl.textContent = "Positions: —";
+    return;
+  }
+  if (!rpcReady || !stakeNft) {
+    setState(listEl, "error", "RPC not connected");
+    return;
+  }
+  setState(listEl, "loading", "Loading multi-stakes…");
+  try {
+    // ownedTokens is msg.sender-based — pass from override for read-only
+    const ids = await stakeNft.ownedTokens.staticCall({ from: account });
+    if (countEl) countEl.textContent = `Positions: ${ids.length}`;
+    if (!ids.length) {
+      setState(listEl, "empty", "No multi-stake NFTs on this wallet yet");
+      return;
+    }
+    const infos = await Promise.all(ids.map(async (id) => {
+      try {
+        const packed = await stakeNft.stakeInfo(id);
+        const decoded = decodeStakeInfo(packed);
+        return { tokenId: Number(id), ...decoded };
+      } catch (e) {
+        console.warn("stakeInfo", id, e);
+        return { tokenId: Number(id), error: true };
+      }
+    }));
+    // Soonest maturity first
+    infos.sort((a, b) => {
+      if (a.error || b.error) return a.error ? 1 : -1;
+      return a.maturityTs - b.maturityTs;
+    });
+    let rows = `<div class="scroll-table"><table>
+      <tr><th>NFT #</th><th>Amount</th><th>Term</th><th>APY</th><th>Matures</th><th>Status</th><th></th></tr>`;
+    for (const s of infos) {
+      if (s.error) {
+        rows += `<tr><td class="mono">${s.tokenId}</td><td colspan="6" class="status-wait">could not load</td></tr>`;
+        continue;
+      }
+      const st = mintStatusLabel(s.maturityTs);
+      const endBtn = st.ready
+        ? `<button class="btn btn-sm btn-green" onclick="doEndNftStake(${s.tokenId}, true)">End Stake</button>`
+        : `<button class="btn btn-sm btn-ghost" onclick="doEndNftStake(${s.tokenId}, false, '${st.text}')">End Stake</button>`;
+      rows += `<tr>
+        <td class="mono"><a class="addr-link" target="_blank" rel="noopener noreferrer" href="${nftInstanceUrl(s.tokenId)}">${s.tokenId}</a></td>
+        <td class="mono">${fmtFuel(s.amount)}</td>
+        <td>${s.term}d</td>
+        <td>${s.apy}%</td>
+        <td class="mono" style="font-size:12px">${fmtDateTime(s.maturityTs)} (${fmtRelative(s.maturityTs)})</td>
+        <td class="${st.cls}">${st.text}</td>
+        <td>${endBtn}</td>
+      </tr>`;
+    }
+    rows += `</table></div>`;
+    if (infos.length > 5) {
+      rows += `<p class="hint mt-12">Showing ${infos.length} positions — scroll the table for the rest.</p>`;
+    }
+    rows += `<p class="hint mt-12">End Stake withdraws principal + yield to your wallet and burns the NFT. Transfers are blocked within ±7 days of maturity (blackout).</p>`;
+    listEl.className = "";
+    listEl.innerHTML = rows;
+    const scrollEl = listEl.querySelector(".scroll-table");
+    // Size after paint so row heights are real; CSS max-height:280px is the safety net.
+    requestAnimationFrame(() => {
+      sizeScrollTableToRows(scrollEl, 5);
+      requestAnimationFrame(() => sizeScrollTableToRows(scrollEl, 5));
+    });
+  } catch (e) {
+    console.error("loadNftStakes", e);
+    setState(listEl, "error", "Failed: " + (e.shortMessage || e.message || e));
+  }
+}
+
 async function doSweep() {
+  if (!account) return connectWallet();
+  try {
+    await vault.sweep.staticCall();
+  } catch (e) {
+    const msg = e.reason || e.shortMessage || e.message || String(e);
+    return toast("Sweep would fail: " + msg.slice(0, 140), "err");
+  }
   await withTx(() => vault.sweep(), "Vault sweep");
 }
 
 async function doBabBurn() {
-  const deadline = Math.floor(Date.now() / 1000) + 600;
-  await withTx(() => bab.swapETHForTokenAndBurn(deadline), "FUEL burn interval");
+  if (!account) return connectWallet();
+  try {
+    const nowTs = chainBlockTs || Math.floor(Date.now() / 1000);
+    const deadline = nowTs + 600;
+    await bab.swapETHForTokenAndBurn.staticCall(deadline);
+    await withTx(() => bab.swapETHForTokenAndBurn(deadline), "FUEL burn interval");
+  } catch (e) {
+    const msg = e.reason || e.shortMessage || e.message || String(e);
+    toast("Burn would fail: " + msg.slice(0, 140), "err");
+  }
 }
 
 async function doMoreBurn() {
-  const dl = Math.floor(Date.now() / 1000) + 600;
-  await withTx(() => more.swapETHForMoreAndBurn(dl), "MORE burn interval");
+  if (!account) return connectWallet();
+  try {
+    const nowTs = chainBlockTs || Math.floor(Date.now() / 1000);
+    const dl = nowTs + 600;
+    await more.swapETHForMoreAndBurn.staticCall(dl);
+    await withTx(() => more.swapETHForMoreAndBurn(dl), "MORE burn interval");
+  } catch (e) {
+    const msg = e.reason || e.shortMessage || e.message || String(e);
+    toast("Burn would fail: " + msg.slice(0, 140), "err");
+  }
 }
 
 /* ===================== UI WIRING ===================== */
@@ -2092,21 +2692,33 @@ $("copyDonate").addEventListener("click", async () => {
 document.querySelectorAll(".tabs button").forEach(btn => {
   btn.addEventListener("click", () => {
     const parent = btn.parentElement;
-    parent.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+    parent.querySelectorAll("button").forEach(b => {
+      b.classList.remove("active");
+      b.setAttribute("aria-selected", "false");
+    });
     btn.classList.add("active");
+    btn.setAttribute("aria-selected", "true");
     $("tab-share").style.display = btn.dataset.tab === "share" ? "block" : "none";
     $("tab-stakeClaim").style.display = btn.dataset.tab === "stakeClaim" ? "block" : "none";
   });
 });
 
+let _mintDebounce = null;
 ["mintTerm","mintCount"].forEach(id => {
   const el = $(id);
-  if (el) el.addEventListener("input", () => { updateFeeHints(); updateMintPreview(); });
+  if (!el) return;
+  el.addEventListener("input", () => {
+    clearTimeout(_mintDebounce);
+    _mintDebounce = setTimeout(() => {
+      updateFeeHints();
+      updateMintPreview();
+    }, 280);
+  });
 });
 
 // Prevent typing/pasting a stake amount above the wallet's FUEL balance.
-(() => {
-  const el = $("stakeAmount");
+["stakeAmount", "nftStakeAmount"].forEach((id) => {
+  const el = $(id);
   if (!el) return;
   el.addEventListener("input", () => {
     const bal = window._fuelBalance;
@@ -2116,15 +2728,16 @@ document.querySelectorAll(".tabs button").forEach(btn => {
     const balNum = Number(ethers.formatEther(bal));
     if (v > balNum) el.value = ethers.formatEther(bal);
   });
-})();
+});
 
 // Prevent typing/pasting a stake term above the on-chain max (clamp in real time).
-["stakeDays", "stakeTerm", "remintModalTerm"].forEach(id => {
+["stakeDays", "stakeTerm", "remintModalTerm", "nftStakeDays"].forEach(id => {
   const el = $(id);
   if (!el) return;
   el.addEventListener("input", () => {
-    const lim = window._termLimits || { minDays: 7, stakeMaxDays: 1000 };
-    const max = id === "stakeDays" || id === "stakeTerm" ? lim.stakeMaxDays : lim.mintMaxDays;
+    const lim = window._termLimits || { minDays: 7, stakeMaxDays: 1000, mintMaxDays: 100 };
+    const max = (id === "stakeDays" || id === "stakeTerm" || id === "nftStakeDays")
+      ? lim.stakeMaxDays : lim.mintMaxDays;
     if (el.value === "") return; // let them clear/backspace freely
     let v = Number(el.value);
     if (Number.isNaN(v)) return;
@@ -2132,10 +2745,13 @@ document.querySelectorAll(".tabs button").forEach(btn => {
   });
   el.addEventListener("blur", () => {
     const lim = window._termLimits || { minDays: 7, stakeMaxDays: 1000, mintMaxDays: 100 };
-    const max = id === "stakeDays" || id === "stakeTerm" ? lim.stakeMaxDays : lim.mintMaxDays;
+    const max = (id === "stakeDays" || id === "stakeTerm" || id === "nftStakeDays")
+      ? lim.stakeMaxDays : lim.mintMaxDays;
+    // Multi-stake NFT only requires term > 0 on-chain; native/mint keep min 7
+    const min = id === "nftStakeDays" ? 1 : lim.minDays;
     let v = Number(el.value);
     if (el.value === "" || Number.isNaN(v)) return;
-    if (v < lim.minDays) el.value = String(lim.minDays);
+    if (v < min) el.value = String(min);
     else if (v > max) el.value = String(max);
   });
 });
@@ -2148,8 +2764,31 @@ $("remintModal").addEventListener("click", (e) => {
 });
 
 if (window.ethereum) {
-  window.ethereum.on("accountsChanged", () => location.reload());
-  window.ethereum.on("chainChanged", () => location.reload());
+  // Wallet extensions re-fire these events for reasons that have nothing to do
+  // with the user switching accounts/networks (waking from sleep, tab refocus,
+  // the extension unlocking, multiple wallet extensions both announcing state).
+  // Reloading unconditionally on every event makes the page reload "randomly";
+  // only reload when the account/chain actually changed from what we last saw.
+  let _lastAccount = account ? account.toLowerCase() : null;
+  let _lastChainId = null;
+  try {
+    window.ethereum.request({ method: "eth_chainId" })
+      .then((id) => { _lastChainId = id; })
+      .catch(() => {});
+  } catch (_) {}
+
+  window.ethereum.on("accountsChanged", (accounts) => {
+    const next = accounts && accounts[0] ? accounts[0].toLowerCase() : null;
+    if (next === _lastAccount) return; // same account re-announced — ignore
+    _lastAccount = next;
+    location.reload();
+  });
+
+  window.ethereum.on("chainChanged", (chainId) => {
+    if (chainId === _lastChainId) return; // same chain re-announced — ignore
+    _lastChainId = chainId;
+    location.reload();
+  });
 }
 
 /* Wrong-network banner: check now, and wire the one-click switch button */
@@ -2176,7 +2815,19 @@ initRead()
     toast("RPC error: " + (e.message || e), "err");
     setState($("userPosition"), "error", "RPC failed — cannot load data. Refresh the page to retry.");
   });
-setInterval(() => { refreshAll(true).catch((e) => console.warn("poll failed", e.message)); }, 45000);
+function startPolling() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(() => {
+    if (document.hidden) return; // pause when tab not visible
+    refreshAll(true).catch((e) => console.warn("poll failed", e.message));
+  }, 45000);
+}
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshAll(true).catch(() => {});
+});
+startPolling();
+// Initial connect-hint labels before wallet
+enableActions(false);
 </script>
 </body>
 </html>
